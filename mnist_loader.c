@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include "mat.h"
+#include "nn.h"
+#include "sample.h"
 
 const int __mnist_image_size = 28*28;
 
@@ -65,7 +68,22 @@ MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, si
     fclose(labelsfileptr);
 
     return samples;
+}
 
+Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count) {
+    Sample** samples = (Sample**)malloc(sizeof(Sample*) * count);
+
+    for (int i = 0; i < count; i++) {
+        samples[i] = (Sample*)malloc(sizeof(Sample));
+        
+        samples[i]->inputs = mat_malloc(28*28, 1);
+        samples[i]->inputs->data = mnist_samples[i].data;
+
+        samples[i]->outputs = mat_malloc(10, 1);
+        mat_fill_func(samples[i]->outputs, samples[i]->outputs, mat_zero_filler_cb);
+        samples[i]->outputs->data[mnist_samples[i].label] = 1.0;
+    }
+    return samples;
 }
 
 void mnist_print_image(float* image) {

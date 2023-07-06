@@ -4,7 +4,21 @@
 #include "mnist_loader.h"
 #include "mat.h"
 #include "nn.h"
+#include "sample.h"
+#include "helper.h"
  
+int argma(float* array, int size) {
+    int max_index = 0;
+    float max_val = array[0];
+    for (int i = 0; i < size; i++) {
+        if (array[i] > max_val) {
+            max_val = array[i];
+            max_index = i;
+        }
+    }
+    return max_index;
+}
+
 int main(int argc, char* argv[]) {
     
     srand(time(NULL) * time(NULL));
@@ -13,7 +27,7 @@ int main(int argc, char* argv[]) {
     NN* nn = NN_malloc(sizes, 4);
     nn_initialize_standard_norm(nn);
 
-    float lr = 1.0;
+    float lr = 3.0;
     int epochs = 30;
     int minibatch_size = 10;
     int training_samples_count = 60000;
@@ -22,7 +36,10 @@ int main(int argc, char* argv[]) {
     MnistSample* training_data = mnist_load_samples("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte", 0, training_samples_count);
     MnistSample* test_data = mnist_load_samples("data/t10k-images.idx3-ubyte", "data/t10k-labels.idx1-ubyte", 0, test_samples_count);
 
-    nn_sgd(nn, training_data, training_samples_count, epochs, minibatch_size, lr, test_data, test_samples_count);
+    Sample** training_samples = mnist_samples_to_samples(training_data, training_samples_count);
+    Sample** test_samples = mnist_samples_to_samples(test_data, test_samples_count);
+
+    nn_sgd(nn, training_samples, training_samples_count, epochs, minibatch_size, lr, test_samples, test_samples_count);
 
     return 0;
 }

@@ -1,4 +1,4 @@
-#include "math.h"
+#include "mat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,11 +7,13 @@
 
 #define MAT_ELEM_IDX(m, row, col) row * m->cols + col
 
-typedef struct Mat {
-    int rows;
-    int cols;
-    float* data;
-} Mat;
+float mat_standard_norm_filler_cb(float cur, int row, int col) {
+    return (float)gauss();
+}
+
+float mat_zero_filler_cb(float cur, int row, int col) {
+    return 0.0;
+}
 
 void mat_print(Mat* m) {
     float* cur = m->data;

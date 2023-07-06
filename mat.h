@@ -9,6 +9,8 @@ typedef struct Mat {
     float* data;
 } Mat;
 
+float mat_standard_norm_filler_cb(float cur, int row, int col);
+float mat_zero_filler_cb(float cur, int row, int col);
 Mat* mat_malloc(int rows, int cols);
 Mat* mat_malloc_cpy(int rows, int cols, float cpy[rows][cols]);
 Mat* mat_cpy(Mat* m);

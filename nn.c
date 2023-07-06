@@ -7,6 +7,7 @@
 #include "mat.h"
 #include "helper.h"
 #include "mnist_loader.h"
+#include "sample.h"
 
 #define SIGMOID(z) (1 / (1 + exp(-z)))
 #define SIGMOID_PRIME(z) (SIGMOID(z) * (1 - SIGMOID(z)))
@@ -173,19 +174,14 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
     return g;
 }
 
-NN* nn_update_minibatch(NN* nn, float lr, MnistSample* minibatch, int minibatch_size) {
+NN* nn_update_minibatch(NN* nn, float lr, Sample** minibatch, int minibatch_size) {
 
     NN* g = NN_malloc(nn->sizes, nn->num_layers);
     nn_initialize_zero(g);
 
     for (int i = 0; i < minibatch_size; i++) {
-
-        Mat* inputs = mat_malloc(28*28, 1);
-        memcpy(inputs->data, minibatch[i].data, sizeof(float) * 28 * 28);
-        Mat* outputs = mat_malloc(10, 1);
-
-        mat_fill_func(outputs, outputs, zero_initializer_cb);
-        outputs->data[minibatch[i].label] = 1.0;
+        Mat* inputs = minibatch[i]->inputs;
+        Mat* outputs = minibatch[i]->outputs;
 
         NN* sample_g = nn_backprop(nn, inputs, outputs);
 
@@ -195,8 +191,6 @@ NN* nn_update_minibatch(NN* nn, float lr, MnistSample* minibatch, int minibatch_
         }
 
         NN_free(sample_g);
-        mat_free(inputs);
-        mat_free(outputs);
     }
 
     for (int j = 0; j < nn->num_layers - 1; j++) {
@@ -221,34 +215,38 @@ int nn_argmax(float* array, int size) {
     return max_index;
 }
 
-float nn_evaluate(NN* nn, MnistSample* test_data, int test_count) {
+float nn_evaluate(NN* nn, Sample* test_samples[], int test_count) {
 
     int correct_predictions = 0;
 
     for (int i = 0; i < test_count; i++) {
-        Mat* input = mat_malloc(28*28, 1);
-        memcpy(input->data, test_data[i].data, sizeof(float) * 28 * 28);
+        Mat* inputs = test_samples[i]->inputs;
+        Mat* outputs = nn_feedforward(nn, inputs);
 
-        Mat* output = nn_feedforward(nn, input);
-        int prediction = nn_argmax(output->data, output->rows);
-        if (prediction == test_data[i].label)
+        int prediction = nn_argmax(outputs->data, outputs->rows);
+        int correct = nn_argmax(test_samples[i]->outputs->data, test_samples[i]->outputs->rows);
+
+        if (prediction == correct)
             correct_predictions++;
 
-        mat_free(input);
+        mat_free(outputs);
     }
 
     return (float)correct_predictions / test_count;
 }
 
-NN* nn_sgd(NN* nn, MnistSample* training_data, int training_count, int epochs, int minibatch_size, float lr, MnistSample* test_data, int test_count) {
+NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, int minibatch_size, float lr, Sample** test_samples, int test_count) {
 
-    printf("Starting SGD. Initial accuracy: %.2f%%\n", nn_evaluate(nn, test_data, test_count) * 100);
+
+    printf("Starting SGD. Initial accuracy: %.2f%%\n", nn_evaluate(nn, test_samples, test_count) * 100);
+    
 
     for (int epoch = 0; epoch < epochs; epoch++) {
-        // TODO: shuffle training_data
+
+        shuffle_pointers((void*)training_samples, training_count);
 
         for (int batch_offset = 0; batch_offset < training_count; batch_offset += minibatch_size) {
-            NN* dg = nn_update_minibatch(nn, lr, training_data + batch_offset, minibatch_size);
+            NN* dg = nn_update_minibatch(nn, lr, training_samples + batch_offset, minibatch_size);
             for (int i = 0; i < nn->num_layers - 1; i++) {
                 nn->biases[i] = mat_sub(nn->biases[i], nn->biases[i], dg->biases[i]);
                 nn->weights[i] = mat_sub(nn->weights[i], nn->weights[i], dg->weights[i]);
@@ -258,8 +256,8 @@ NN* nn_sgd(NN* nn, MnistSample* training_data, int training_count, int epochs, i
         }
 
         
-        if (test_data != NULL) {
-            float accuracy = nn_evaluate(nn, test_data, test_count) * 100;
+        if (test_samples != NULL) {
+            float accuracy = nn_evaluate(nn, test_samples, test_count) * 100;
             printf("Epoch %d completed. Accuracy: %.2f%%\n", epoch, accuracy);
         } else
             printf("Epoch %d completed.\n", epoch);
