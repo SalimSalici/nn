@@ -80,7 +80,7 @@ Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count) {
         samples[i]->inputs->data = mnist_samples[i].data;
 
         samples[i]->outputs = mat_malloc(10, 1);
-        mat_fill_func(samples[i]->outputs, samples[i]->outputs, mat_zero_filler_cb);
+        mat_fill_func(samples[i]->outputs, samples[i]->outputs, mat_zero_filler_cb, NULL);
         samples[i]->outputs->data[mnist_samples[i].label] = 1.0;
     }
     return samples;

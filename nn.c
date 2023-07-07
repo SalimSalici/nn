@@ -12,14 +12,6 @@
 #define SIGMOID(z) (1 / (1 + exp(-z)))
 #define SIGMOID_PRIME(z) (SIGMOID(z) * (1 - SIGMOID(z)))
 
-float standard_norm_initializer_cb(float cur, int row, int col) {
-    return (float)gauss();
-}
-
-float zero_initializer_cb(float cur, int row, int col) {
-    return 0.0;
-}
-
 NN* NN_malloc(int sizes[], int num_layers) {
     NN* nn = (NN*)malloc(sizeof(NN));
     nn->num_layers = num_layers;
@@ -52,18 +44,33 @@ void NN_free(NN* nn) {
     free(nn);
 }
 
+// Initializes weights and biases sampling from standard normal distribution
 NN* nn_initialize_standard_norm(NN* nn) {
     for (int i = 0; i < nn->num_layers - 1; i++) {
-        mat_fill_func(nn->biases[i], nn->biases[i], standard_norm_initializer_cb);
-        mat_fill_func(nn->weights[i], nn->weights[i], standard_norm_initializer_cb);
+        mat_fill_func(nn->biases[i], nn->biases[i], mat_standard_norm_filler_cb, NULL);
+        mat_fill_func(nn->weights[i], nn->weights[i], mat_standard_norm_filler_cb, NULL);
+    }
+    return nn;
+}
+
+// Initializes the weights of the network based on the fan-in of each layer and biases to 0
+NN* nn_initialize_fanin(NN* nn) {
+    float* norm_args[2];
+    for (int i = 0; i < nn->num_layers - 1; i++) {
+        float mean = 0.0;
+        float sd = 1 / sqrt(nn->sizes[i]);
+        norm_args[0] = &mean;
+        norm_args[1] = &sd;
+        mat_fill_func(nn->biases[i], nn->biases[i], mat_zero_filler_cb, NULL);
+        mat_fill_func(nn->weights[i], nn->weights[i], mat_norm_filler_cb, norm_args);
     }
     return nn;
 }
 
 NN* nn_initialize_zero(NN* nn) {
     for (int i = 0; i < nn->num_layers - 1; i++) {
-        mat_fill_func(nn->biases[i], nn->biases[i], zero_initializer_cb);
-        mat_fill_func(nn->weights[i], nn->weights[i], zero_initializer_cb);
+        mat_fill_func(nn->biases[i], nn->biases[i], mat_zero_filler_cb, NULL);
+        mat_fill_func(nn->weights[i], nn->weights[i], mat_zero_filler_cb, NULL);
     }
     return nn;
 }
@@ -86,11 +93,11 @@ float nn_sigmoid(float z) {
     return 1 / (1 + exp(-z));
 }
 
-float nn_mat_sigmoid_cb(float cur, int row, int col) {
+float nn_mat_sigmoid_cb(float cur, int row, int col, void* func_args) {
     return SIGMOID(cur);
 }
 
-float nn_mat_sigmoid_prime_cb(float cur, int row, int col) {
+float nn_mat_sigmoid_prime_cb(float cur, int row, int col, void* func_args) {
     return SIGMOID_PRIME(cur);
 }
 
@@ -103,7 +110,7 @@ Mat* nn_feedforward(NN* nn, Mat* inputs) {
     for (int i = 0; i < nn->num_layers - 1; i++) {
         Mat* z = mat_mult(NULL, nn->weights[i], a);
         z = mat_add(z, z, nn->biases[i]);
-        z = mat_fill_func(z, z, nn_mat_sigmoid_cb);
+        z = mat_fill_func(z, z, nn_mat_sigmoid_cb, NULL);
         mat_free(a);
         a = z;
     }
@@ -120,25 +127,25 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
     zs[0] = mat_mult(NULL, nn->weights[0], inputs);
     zs[0] = mat_add(zs[0], zs[0], nn->biases[0]);
     as[0] = mat_cpy(zs[0]);
-    as[0] = mat_fill_func(as[0], as[0], nn_mat_sigmoid_cb);
+    as[0] = mat_fill_func(as[0], as[0], nn_mat_sigmoid_cb, NULL);
 
     for (int i = 1; i < nn->num_layers - 1; i++) {
         zs[i] = mat_mult(NULL, nn->weights[i], as[i-1]);
         zs[i] = mat_add(zs[i], zs[i], nn->biases[i]);
         as[i] = mat_cpy(zs[i]);
-        as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb);
+        as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb, NULL);
     }
 
     int last_layer_idx = nn->num_layers - 2;
     ds[last_layer_idx] = mat_sub(NULL, as[last_layer_idx], outputs);
-    zs[last_layer_idx] = mat_fill_func(zs[last_layer_idx], zs[last_layer_idx], nn_mat_sigmoid_prime_cb);
+    zs[last_layer_idx] = mat_fill_func(zs[last_layer_idx], zs[last_layer_idx], nn_mat_sigmoid_prime_cb, NULL);
     ds[last_layer_idx] = mat_hadamard_prod(ds[last_layer_idx], ds[last_layer_idx], zs[last_layer_idx]);
 
     for (int i = nn->num_layers - 3; i >= 0; i--) {
         Mat* w_next = mat_transpose(NULL, nn->weights[i+1]);
 
         ds[i] = mat_mult(NULL, w_next, ds[i+1]);
-        zs[i] = mat_fill_func(zs[i], zs[i], nn_mat_sigmoid_prime_cb);
+        zs[i] = mat_fill_func(zs[i], zs[i], nn_mat_sigmoid_prime_cb, NULL);
         ds[i] = mat_hadamard_prod(ds[i], ds[i], zs[i]);
 
         mat_free(w_next);

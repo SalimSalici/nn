@@ -7,12 +7,22 @@
 
 #define MAT_ELEM_IDX(m, row, col) row * m->cols + col
 
-float mat_standard_norm_filler_cb(float cur, int row, int col) {
-    return (float)gauss();
+float mat_standard_norm_filler_cb(float cur, int row, int col, void* func_args) {
+    return gauss();
 }
 
-float mat_zero_filler_cb(float cur, int row, int col) {
+float mat_zero_filler_cb(float cur, int row, int col, void* func_args) {
     return 0.0;
+}
+
+// func_args is an array of two floats
+float mat_norm_filler_cb(float cur, int row, int col, void* func_args) {
+    assert(func_args != NULL);
+    float** args;
+    args = (float**)func_args;
+    float mean = *(args[0]);
+    float stand_dev = *(args[1]);
+    return gauss() * stand_dev + mean;
 }
 
 void mat_print(Mat* m) {
@@ -180,7 +190,7 @@ Mat* mat_fill(Mat* m, float f) {
     return m;
 }
 
-Mat* mat_fill_func(Mat* res, Mat* m, float (*f)(float, int, int)) {
+Mat* mat_fill_func(Mat* res, Mat* m, float (*f)(float, int, int, void*), void* func_args) {
     if (res == NULL) {
         res = mat_malloc(m->rows, m->cols);
     } else {
@@ -191,7 +201,7 @@ Mat* mat_fill_func(Mat* res, Mat* m, float (*f)(float, int, int)) {
     float* cur = m->data;
     for (int r = 0; r < m->rows; r++) {
         for (int c = 0; c < m->cols; c++) {
-            *cur_res = (*f)(*cur, r, c);
+            *cur_res = (*f)(*cur, r, c, func_args);
             cur_res++;
             cur++;
         }

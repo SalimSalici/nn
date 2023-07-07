@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <time.h>
 #include "mnist_loader.h"
@@ -6,18 +7,6 @@
 #include "nn.h"
 #include "sample.h"
 #include "helper.h"
- 
-int argma(float* array, int size) {
-    int max_index = 0;
-    float max_val = array[0];
-    for (int i = 0; i < size; i++) {
-        if (array[i] > max_val) {
-            max_val = array[i];
-            max_index = i;
-        }
-    }
-    return max_index;
-}
 
 int main(int argc, char* argv[]) {
     
@@ -25,7 +14,7 @@ int main(int argc, char* argv[]) {
 
     int sizes[4] = {28*28, 100, 30, 10};
     NN* nn = NN_malloc(sizes, 4);
-    nn_initialize_standard_norm(nn);
+    nn_initialize_fanin(nn);
 
     float lr = 3.0;
     int epochs = 30;
