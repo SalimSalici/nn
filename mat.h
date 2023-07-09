@@ -25,6 +25,7 @@ Mat* mat_scale(Mat* res, Mat* a, float f);
 Mat* mat_fill(Mat* m, float f);
 Mat* mat_fill_func(Mat* res, Mat* m, float (*f)(float, int, int, void*), void* func_args);
 Mat* mat_diag_fill(Mat* m, float f);
+float mat_max(Mat* m);
 void mat_print(Mat* m);
 
 #endif

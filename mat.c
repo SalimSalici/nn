@@ -28,11 +28,12 @@ float mat_norm_filler_cb(float cur, int row, int col, void* func_args) {
 void mat_print(Mat* m) {
     float* cur = m->data;
     for (int r = 0; r < m->rows; r++) {
+        printf("{");
         for (int c = 0; c < m->cols; c++) {
             printf("%f, ", *cur);
             cur++;
         }
-        printf("\n");
+        printf("}\n");
     }
 }
 
@@ -216,4 +217,11 @@ Mat* mat_diag_fill(Mat* m, float f) {
         cur += m->cols + 1;
     }
     return m;
+}
+
+float mat_max(Mat* m) {
+    float max = m->data[0];
+    for (int i = 1; i < m->rows * m->cols; i++)
+        if (m->data[i] > max) max = m->data[i];
+    return max;
 }

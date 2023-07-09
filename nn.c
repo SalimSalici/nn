@@ -30,6 +30,9 @@ NN* NN_malloc(int sizes[], int num_layers) {
         nn->weights[i] = mat_malloc(cur_layer_size, prev_layer_size);
     }
 
+    nn->output_layer_type = NN_SIGMOID_OUT;
+    nn->loss_function = NN_MSE_LOSS;
+
     return nn;
 }
 
@@ -42,6 +45,16 @@ void NN_free(NN* nn) {
     free(nn->biases);
     free(nn->weights);
     free(nn);
+}
+
+NN* nn_set_output_layer_type(NN* nn, int type) {
+    nn->output_layer_type = type;
+    return nn;
+}
+
+NN* nn_set_loss(NN* nn, int loss) {
+    nn->loss_function = loss;
+    return nn;
 }
 
 // Initializes weights and biases sampling from standard normal distribution
@@ -101,18 +114,55 @@ float nn_mat_sigmoid_prime_cb(float cur, int row, int col, void* func_args) {
     return SIGMOID_PRIME(cur);
 }
 
+float nn_mat_relu_cb(float cur, int row, int col, void* func_args) {
+    return cur > 0.0 ? cur : 0.0;
+}
+
+float nn_mat_relu_prime_cb(float cur, int row, int col, void* func_args) {
+    return cur > 0.0 ? 1 : 0.0;
+}
+
+Mat* nn_softmax(Mat* z) {
+    assert(z->cols == 1);
+    Mat* res = mat_malloc(z->rows, 1);
+
+    float z_max = mat_max(z);
+    float den = exp(z->data[0] - z_max);
+
+    for (int i = 1; i < z->rows; i++)
+        den += exp(z->data[i] - z_max);
+    for (int i = 0; i < z->rows; i++)
+        res->data[i] = exp(z->data[i] - z_max) / den;
+
+    return res;
+}
+
 Mat* nn_feedforward(NN* nn, Mat* inputs) {
     assert(inputs->rows == nn->sizes[0]);
     assert(inputs->cols == 1);
 
     Mat* a = mat_cpy(inputs);
 
-    for (int i = 0; i < nn->num_layers - 1; i++) {
+    for (int i = 0; i < nn->num_layers - 2; i++) {
         Mat* z = mat_mult(NULL, nn->weights[i], a);
         z = mat_add(z, z, nn->biases[i]);
         z = mat_fill_func(z, z, nn_mat_sigmoid_cb, NULL);
         mat_free(a);
         a = z;
+    }
+
+    size_t last_layer_idx = nn->num_layers - 2;
+
+    Mat* z = mat_mult(NULL, nn->weights[last_layer_idx], a);
+    z = mat_add(z, z, nn->biases[last_layer_idx]);
+    mat_free(a);
+
+    if (nn->output_layer_type == NN_SIGMOID_OUT) {
+        z = mat_fill_func(z, z, nn_mat_sigmoid_cb, NULL);
+        a = z;
+    } else if (nn->output_layer_type == NN_SOFTMAX_OUT) {
+        a = nn_softmax(z);
+        free(z);
     }
 
     return a;
@@ -124,6 +174,7 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
     Mat** as = (Mat**)malloc(sizeof(Mat*) * (nn->num_layers - 1)); // layer activations
     Mat** ds = (Mat**)malloc(sizeof(Mat*) * (nn->num_layers - 1)); // layer errors (delta)
 
+    // Feedforward
     zs[0] = mat_mult(NULL, nn->weights[0], inputs);
     zs[0] = mat_add(zs[0], zs[0], nn->biases[0]);
     as[0] = mat_cpy(zs[0]);
@@ -132,14 +183,26 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
     for (int i = 1; i < nn->num_layers - 1; i++) {
         zs[i] = mat_mult(NULL, nn->weights[i], as[i-1]);
         zs[i] = mat_add(zs[i], zs[i], nn->biases[i]);
-        as[i] = mat_cpy(zs[i]);
-        as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb, NULL);
+
+        if (i == nn->num_layers - 2 && nn->output_layer_type == NN_SOFTMAX_OUT) {
+            // Apply softmax to last layer
+            as[i] = nn_softmax(zs[i]);
+        } else if (nn->output_layer_type == NN_SIGMOID_OUT) {
+            // Apply sigmoid to non-last layers
+            as[i] = mat_cpy(zs[i]);
+            as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb, NULL);
+        }
+
     }
 
+    // Backprop
     int last_layer_idx = nn->num_layers - 2;
     ds[last_layer_idx] = mat_sub(NULL, as[last_layer_idx], outputs);
-    zs[last_layer_idx] = mat_fill_func(zs[last_layer_idx], zs[last_layer_idx], nn_mat_sigmoid_prime_cb, NULL);
-    ds[last_layer_idx] = mat_hadamard_prod(ds[last_layer_idx], ds[last_layer_idx], zs[last_layer_idx]);
+
+    if (nn->loss_function == NN_MSE_LOSS) {
+        zs[last_layer_idx] = mat_fill_func(zs[last_layer_idx], zs[last_layer_idx], nn_mat_sigmoid_prime_cb, NULL);
+        ds[last_layer_idx] = mat_hadamard_prod(ds[last_layer_idx], ds[last_layer_idx], zs[last_layer_idx]);
+    }
 
     for (int i = nn->num_layers - 3; i >= 0; i--) {
         Mat* w_next = mat_transpose(NULL, nn->weights[i+1]);
@@ -181,7 +244,7 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
     return g;
 }
 
-NN* nn_update_minibatch(NN* nn, float lr, Sample** minibatch, int minibatch_size) {
+NN* nn_update_minibatch(NN* nn, float lr, float lambda, Sample** minibatch, int minibatch_size, int training_count) {
 
     NN* g = NN_malloc(nn->sizes, nn->num_layers);
     nn_initialize_zero(g);
@@ -191,6 +254,7 @@ NN* nn_update_minibatch(NN* nn, float lr, Sample** minibatch, int minibatch_size
         Mat* outputs = minibatch[i]->outputs;
 
         NN* sample_g = nn_backprop(nn, inputs, outputs);
+        // NN* sample_g = nn_backprop_softmaxloss(nn, inputs, outputs);
 
         for (int j = 0; j < nn->num_layers - 1; j++) {
             g->biases[j] = mat_add(g->biases[j], g->biases[j], sample_g->biases[j]);
@@ -200,9 +264,14 @@ NN* nn_update_minibatch(NN* nn, float lr, Sample** minibatch, int minibatch_size
         NN_free(sample_g);
     }
 
-    for (int j = 0; j < nn->num_layers - 1; j++) {
-        g->biases[j] = mat_scale(g->biases[j], g->biases[j], lr / ((float)minibatch_size));
-        g->weights[j] = mat_scale(g->weights[j], g->weights[j], lr / ((float)minibatch_size));
+    for (int i = 0; i < nn->num_layers - 1; i++) {
+        g->biases[i] = mat_scale(g->biases[i], g->biases[i], lr / ((float)minibatch_size));
+        g->weights[i] = mat_scale(g->weights[i], g->weights[i], lr / ((float)minibatch_size));
+
+        // L2 regularization
+        Mat* reg_g = mat_scale(NULL, nn->weights[i], lr * lambda / ((float)training_count));
+        g->weights[i] = mat_add(g->weights[i], g->weights[i], reg_g);
+        mat_free(reg_g);
     }
 
     return g;
@@ -242,18 +311,23 @@ float nn_evaluate(NN* nn, Sample* test_samples[], int test_count) {
     return (float)correct_predictions / test_count;
 }
 
-NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, int minibatch_size, float lr, Sample** test_samples, int test_count) {
+NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, int minibatch_size,
+    float lr, float lambda, Sample** test_samples, int test_count) {
 
+    if (nn->output_layer_type == NN_SOFTMAX_OUT && nn->loss_function == NN_MSE_LOSS) {
+        printf("This framework doesn't support Mean Squared Error loss function paired with a softmax output layer."
+        "Please, choose another loss function and/or output layer type.\n");
+    }
 
     printf("Starting SGD. Initial accuracy: %.2f%%\n", nn_evaluate(nn, test_samples, test_count) * 100);
     
-
     for (int epoch = 0; epoch < epochs; epoch++) {
 
         shuffle_pointers((void*)training_samples, training_count);
 
         for (int batch_offset = 0; batch_offset < training_count; batch_offset += minibatch_size) {
-            NN* dg = nn_update_minibatch(nn, lr, training_samples + batch_offset, minibatch_size);
+            NN* dg = nn_update_minibatch(nn, lr, lambda, training_samples + batch_offset, minibatch_size, training_count);
+
             for (int i = 0; i < nn->num_layers - 1; i++) {
                 nn->biases[i] = mat_sub(nn->biases[i], nn->biases[i], dg->biases[i]);
                 nn->weights[i] = mat_sub(nn->weights[i], nn->weights[i], dg->weights[i]);
@@ -261,7 +335,6 @@ NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, in
             NN_free(dg);
             // printf("Minibatch %d ended...\n", batch_offset / minibatch_size);
         }
-
         
         if (test_samples != NULL) {
             float accuracy = nn_evaluate(nn, test_samples, test_count) * 100;

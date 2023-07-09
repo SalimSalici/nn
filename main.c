@@ -12,12 +12,16 @@ int main(int argc, char* argv[]) {
     
     srand(time(NULL) * time(NULL));
 
-    int sizes[4] = {28*28, 100, 30, 10};
-    NN* nn = NN_malloc(sizes, 4);
+    int sizes[3] = {28*28, 100, 10};
+    NN* nn = NN_malloc(sizes, 3);
+    // nn_initialize_standard_norm(nn);
     nn_initialize_fanin(nn);
+    nn_set_loss(nn, NN_CE_LOSS);
+    nn_set_output_layer_type(nn, NN_SOFTMAX_OUT);
 
-    float lr = 3.0;
-    int epochs = 30;
+    float lr = 0.5; // learning rate
+    float lambda = 0.00; // L2 regularization
+    int epochs = 60;
     int minibatch_size = 10;
     int training_samples_count = 60000;
     int test_samples_count = 10000;
@@ -28,7 +32,7 @@ int main(int argc, char* argv[]) {
     Sample** training_samples = mnist_samples_to_samples(training_data, training_samples_count);
     Sample** test_samples = mnist_samples_to_samples(test_data, test_samples_count);
 
-    nn_sgd(nn, training_samples, training_samples_count, epochs, minibatch_size, lr, test_samples, test_samples_count);
+    nn_sgd(nn, training_samples, training_samples_count, epochs, minibatch_size, lr, lambda, test_samples, test_samples_count);
 
     return 0;
 }
