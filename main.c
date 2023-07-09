@@ -17,14 +17,14 @@ int main(int argc, char* argv[]) {
     // nn_initialize_standard_norm(nn);
     nn_initialize_fanin(nn);
     nn_set_loss(nn, NN_CE_LOSS);
-    nn_set_output_layer_type(nn, NN_SOFTMAX_OUT);
+    nn_set_output_layer_type(nn, NN_SIGMOID_OUT);
 
     float lr = 0.5; // learning rate
-    float lambda = 0.00; // L2 regularization
-    int epochs = 60;
+    float lambda = 0.0; // L2 regularization
+    int epochs = 600;
     int minibatch_size = 10;
     int training_samples_count = 60000;
-    int test_samples_count = 10000;
+    int test_samples_count = 1000;
 
     MnistSample* training_data = mnist_load_samples("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte", 0, training_samples_count);
     MnistSample* test_data = mnist_load_samples("data/t10k-images.idx3-ubyte", "data/t10k-labels.idx1-ubyte", 0, test_samples_count);

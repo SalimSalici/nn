@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 #include "mat.h"
 #include "helper.h"
 #include "mnist_loader.h"
@@ -184,16 +185,24 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
         zs[i] = mat_mult(NULL, nn->weights[i], as[i-1]);
         zs[i] = mat_add(zs[i], zs[i], nn->biases[i]);
 
-        if (i == nn->num_layers - 2 && nn->output_layer_type == NN_SOFTMAX_OUT) {
-            // Apply softmax to last layer
-            as[i] = nn_softmax(zs[i]);
-        } else if (nn->output_layer_type == NN_SIGMOID_OUT) {
+        if (i == nn->num_layers - 2) {
+            if (nn->output_layer_type == NN_SOFTMAX_OUT) {
+                // Apply softmax to last layer
+                as[i] = nn_softmax(zs[i]);
+            } else if (nn->output_layer_type == NN_SIGMOID_OUT) {
+                // Apply sigmoid to last layers
+                as[i] = mat_cpy(zs[i]);
+                as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb, NULL);
+            }
+        } else {
             // Apply sigmoid to non-last layers
             as[i] = mat_cpy(zs[i]);
             as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb, NULL);
         }
+        // printf("CIAO\n");
 
     }
+
 
     // Backprop
     int last_layer_idx = nn->num_layers - 2;
@@ -315,13 +324,16 @@ NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, in
     float lr, float lambda, Sample** test_samples, int test_count) {
 
     if (nn->output_layer_type == NN_SOFTMAX_OUT && nn->loss_function == NN_MSE_LOSS) {
-        printf("This framework doesn't support Mean Squared Error loss function paired with a softmax output layer."
+        printf("This framework doesn't support Mean Squared Error loss function paired with a softmax output layer. "
         "Please, choose another loss function and/or output layer type.\n");
+        exit(0);
     }
 
     printf("Starting SGD. Initial accuracy: %.2f%%\n", nn_evaluate(nn, test_samples, test_count) * 100);
     
     for (int epoch = 0; epoch < epochs; epoch++) {
+
+        clock_t begin = clock();
 
         shuffle_pointers((void*)training_samples, training_count);
 
@@ -335,10 +347,13 @@ NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, in
             NN_free(dg);
             // printf("Minibatch %d ended...\n", batch_offset / minibatch_size);
         }
+
+        clock_t end = clock();
+        float time_spent = (float)(end - begin) / CLOCKS_PER_SEC;
         
         if (test_samples != NULL) {
             float accuracy = nn_evaluate(nn, test_samples, test_count) * 100;
-            printf("Epoch %d completed. Accuracy: %.2f%%\n", epoch, accuracy);
+            printf("Epoch %d completed - Epoch time: %.2fs - Accuracy: %.2f%%\n", epoch, time_spent, accuracy);
         } else
             printf("Epoch %d completed.\n", epoch);
 
