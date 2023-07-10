@@ -5,8 +5,6 @@
 #include <assert.h>
 #include "helper.h"
 
-#define MAT_ELEM_IDX(m, row, col) row * m->cols + col
-
 float mat_standard_norm_filler_cb(float cur, int row, int col, void* func_args) {
     return gauss();
 }
@@ -30,7 +28,7 @@ void mat_print(Mat* m) {
     for (int r = 0; r < m->rows; r++) {
         printf("{");
         for (int c = 0; c < m->cols; c++) {
-            printf("%f, ", *cur);
+            printf("%.3f, ", *cur);
             cur++;
         }
         printf("}\n");

@@ -10,10 +10,7 @@
 #include "mnist_loader.h"
 #include "sample.h"
 
-#define SIGMOID(z) (1 / (1 + exp(-z)))
-#define SIGMOID_PRIME(z) (SIGMOID(z) * (1 - SIGMOID(z)))
-
-NN* NN_malloc(int sizes[], int num_layers) {
+NN* nn_malloc(int sizes[], int num_layers) {
     NN* nn = (NN*)malloc(sizeof(NN));
     nn->num_layers = num_layers;
     nn->sizes = (int*)malloc(sizeof(int) * num_layers);
@@ -37,7 +34,7 @@ NN* NN_malloc(int sizes[], int num_layers) {
     return nn;
 }
 
-void NN_free(NN* nn) {
+void nn_free(NN* nn) {
     free(nn->sizes);
     for (int i = 0; i < nn->num_layers - 1; i++) {
         mat_free(nn->biases[i]);
@@ -199,10 +196,7 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
             as[i] = mat_cpy(zs[i]);
             as[i] = mat_fill_func(as[i], as[i], nn_mat_sigmoid_cb, NULL);
         }
-        // printf("CIAO\n");
-
     }
-
 
     // Backprop
     int last_layer_idx = nn->num_layers - 2;
@@ -223,7 +217,7 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
         mat_free(w_next);
     }
 
-    NN* g = NN_malloc(nn->sizes, nn->num_layers);
+    NN* g = nn_malloc(nn->sizes, nn->num_layers);
 
     mat_free(g->biases[0]);
     mat_free(g->weights[0]);
@@ -255,7 +249,7 @@ NN* nn_backprop(NN* nn, Mat* inputs, Mat* outputs) {
 
 NN* nn_update_minibatch(NN* nn, float lr, float lambda, Sample** minibatch, int minibatch_size, int training_count) {
 
-    NN* g = NN_malloc(nn->sizes, nn->num_layers);
+    NN* g = nn_malloc(nn->sizes, nn->num_layers);
     nn_initialize_zero(g);
 
     for (int i = 0; i < minibatch_size; i++) {
@@ -270,7 +264,7 @@ NN* nn_update_minibatch(NN* nn, float lr, float lambda, Sample** minibatch, int 
             g->weights[j] = mat_add(g->weights[j], g->weights[j], sample_g->weights[j]);
         }
 
-        NN_free(sample_g);
+        nn_free(sample_g);
     }
 
     for (int i = 0; i < nn->num_layers - 1; i++) {
@@ -344,7 +338,7 @@ NN* nn_sgd(NN* nn, Sample** training_samples, int training_count, int epochs, in
                 nn->biases[i] = mat_sub(nn->biases[i], nn->biases[i], dg->biases[i]);
                 nn->weights[i] = mat_sub(nn->weights[i], nn->weights[i], dg->weights[i]);
             }
-            NN_free(dg);
+            nn_free(dg);
             // printf("Minibatch %d ended...\n", batch_offset / minibatch_size);
         }
 

@@ -1,7 +1,7 @@
 #ifndef _MAT_H
 #define _MAT_H
 
-#define MAT_ELEM_IDX(m, row, col) row * m->cols + col
+#define MAT_ELEM_IDX(m, row, col) ((row) * ((m)->cols) + (col))
 
 typedef struct Mat {
     int rows;
