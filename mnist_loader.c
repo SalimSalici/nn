@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <math.h>
 #include "mat.h"
-#include "nn.h"
 #include "sample.h"
 
 const int __mnist_image_size = 28*28;
@@ -43,7 +42,7 @@ float* mnist_load_train_images(char* file_name) {
     return data;
 }
 
-MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, size_t offset, size_t count) {
+MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, size_t offset, size_t count, float black, float white) {
 
     uint8_t buffer[28*28];
 
@@ -59,6 +58,7 @@ MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, si
         fread(&buffer, sizeof(uint8_t)*28*28, 1, datafileptr);
         for (size_t j = 0; j < 28*28; j++) {
             samples[i].data[j] = (float)buffer[j] / 255.0;
+            samples[i].data[j] = black + ((white - black) * samples[i].data[j]);
         }
 
         fread(&(samples[i].label), 1, 1, labelsfileptr);
@@ -70,7 +70,7 @@ MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, si
     return samples;
 }
 
-Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count) {
+Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count, float black, float white) {
     Sample** samples = (Sample**)malloc(sizeof(Sample*) * count);
 
     for (int i = 0; i < count; i++) {
@@ -80,8 +80,8 @@ Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count) {
         samples[i]->inputs->data = mnist_samples[i].data;
 
         samples[i]->outputs = mat_malloc(10, 1);
-        mat_fill_func(samples[i]->outputs, samples[i]->outputs, mat_zero_filler_cb, NULL);
-        samples[i]->outputs->data[mnist_samples[i].label] = 1.0;
+        mat_fill(samples[i]->outputs, black);
+        samples[i]->outputs->data[mnist_samples[i].label] = white;
     }
     return samples;
 }

@@ -1,3 +1,6 @@
-CC = "gcc" 
-CFLAGS += -Wall -O2 -std=gnu11
-LDFLAGS += -lm mat.c helper.c mnist_loader.c nn.c conv.c
+CC = "gcc"
+CFLAGS += -Wall -O3 -std=gnu11 -I./include
+LDFLAGS += -L./lib -lm -l:libopenblas.a
+
+main: mat.c helper.c mnist_loader.c main.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

@@ -14,8 +14,8 @@ typedef struct MnistSample {
 uint32_t map_uint32(uint32_t in);
 uint8_t* mnist_load_train_images_raw(char* file_name);
 float* mnist_load_train_images(char* file_name);
-MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, size_t offset, size_t count);
-Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count);
+MnistSample* mnist_load_samples(char* data_file_name, char* labels_file_name, size_t offset, size_t count, float black, float white);
+Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count, float black, float white);
 void mnist_print_image(float* image);
 
 #endif

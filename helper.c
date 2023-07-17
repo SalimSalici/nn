@@ -6,7 +6,7 @@
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 
-float gauss() {
+float standard_gauss() {
     float x;
     do {
         x = (float)rand() / RAND_MAX;
