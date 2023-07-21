@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <math.h>
 #include "helper.h"
 #include "openblas_config.h"
 #include "cblas.h"
@@ -33,7 +34,10 @@ void mat_print(Mat* m) {
         float* cur = m->data + m->down * r;
         printf("{");
         for (int c = 0; c < loop_cols; c++) {
-            printf("%.4f\t", *cur);
+            if(*cur == 0)
+                printf("z\t");
+            else
+                printf("%.2f\t", *cur);
             cur += m->right;
         }
         printf("}\n");
@@ -653,4 +657,28 @@ float mat_max(Mat* m) {
     for (int i = 1; i < m->rows * m->cols; i++)
         if (m->data[i] > max) max = m->data[i];
     return max;
+}
+
+float mat_min(Mat* m) {
+    float min = m->data[0];
+    for (int i = 1; i < m->rows * m->cols; i++)
+        if (m->data[i] < min) min = m->data[i];
+    return min;
+}
+
+const char __mat_shades[5] = {'.', '-', 'o', '#', '@'};
+
+void mat_print_shades(Mat* m, float black, float white) {
+    float* m_data = m->data;
+
+    for (int i = 0; i < m->rows * m->cols; i++) {
+        float normalized;
+        if (white - black != 0) normalized = (m_data[i] - black) / (white - black);
+        else normalized = 0;
+        int shade_idx = (int)round(normalized * (float)(5 - 1));
+        char c = __mat_shades[shade_idx];
+        printf("%c", c);
+        if (i % m->cols == m->cols - 1)
+            printf("\n");
+    }
 }

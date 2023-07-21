@@ -86,6 +86,22 @@ Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count, float b
     return samples;
 }
 
+Sample** mnist_samples_to_conv_samples(MnistSample* mnist_samples, int count, float black, float white) {
+    Sample** samples = (Sample**)malloc(sizeof(Sample*) * count);
+
+    for (int i = 0; i < count; i++) {
+        samples[i] = (Sample*)malloc(sizeof(Sample));
+        
+        samples[i]->inputs = mat_malloc(28, 28);
+        samples[i]->inputs->data = mnist_samples[i].data;
+
+        samples[i]->outputs = mat_malloc(10, 1);
+        mat_fill(samples[i]->outputs, black);
+        samples[i]->outputs->data[mnist_samples[i].label] = white;
+    }
+    return samples;
+}
+
 void mnist_print_image(float* image) {
     for (int i = 0; i < 28*28; i++) {
         int shade_idx = (int)round(image[i] * (float)(MNIST_SHADES_LEN - 1));

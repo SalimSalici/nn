@@ -2,3 +2,5 @@ main.exe
 bin/*
 include/*
 lib/*
+nn.bat
+test.exe

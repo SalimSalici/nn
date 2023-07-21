@@ -394,9 +394,12 @@ Mat* layer_backward(Layer* layer, Layer* next_layer) {
             printf("This frameworks doesn't support a softmax layer in the hidden layers.");
             exit(0);
             break;
+        case NN_NONE_ACT:
+            break;
     }
 
-    layer->d = mat_hadamard_prod(layer->d, layer->d, layer->z_prime, 1);
+    if (layer->activation != NN_NONE_ACT)
+        layer->d = mat_hadamard_prod(layer->d, layer->d, layer->z_prime, 1);
 
     if (!layer->is_last && layer->dropout_rate != 0) {
         layer->d = mat_hadamard_prod(layer->d, layer->d, layer->dropout_mask, 1);
@@ -415,7 +418,6 @@ Layer* layer_update_weights_and_biases(Layer* layer, Layer* prev_layer, float lr
     Mat* ones = mat_malloc(layer->group_count, 1);
     ones = mat_fill(ones, 1.0);
     layer->b = mat_mult_mv(layer->b, layer->d, ones, -lr / (float)layer->group_count, 1.0);
-
     mat_free(ones);
     
     return layer;
@@ -472,7 +474,6 @@ NN* nn_set_mode(NN* nn, layer_mode_t mode) {
 }
 
 Mat* nn_feedforward(NN* nn, Mat* inputs) {
-    
     layer_forward_first(nn->layers[0], inputs);
     for (int i = 1; i < nn->num_layers; i++) {
         Layer* l = nn->layers[i];
