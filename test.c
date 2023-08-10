@@ -16,8 +16,8 @@ int main(int argc, char* argv[]) {
     
     srand(time(NULL) * time(NULL));
 
-    goto_set_num_threads(5);
-    openblas_set_num_threads(5);
+    goto_set_num_threads(1);
+    openblas_set_num_threads(1);
 
     int minibatch_size = 50;
     int feature_count = 20;
@@ -40,8 +40,8 @@ int main(int argc, char* argv[]) {
     int training_samples_count = 60000;
     int test_samples_count = 10000;
     int epochs = 60;
-    float lr = 0.01;
-    float lambda = 1200;
+    float lr = 0.05;
+    float lambda = 0;
     float black = 0;
     float white = 1;
 

@@ -4,3 +4,4 @@ include/*
 lib/*
 nn.bat
 test.exe
+data/*

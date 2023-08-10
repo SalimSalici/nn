@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 #include "helper.h"
 #include "mat.h"
 #include "sample.h"
@@ -24,7 +25,7 @@ typedef enum layer_activation_t {
 
 typedef enum loss_function_t {
     NN_MSE_LOSS, // Means squared error
-    NN_CE_LOSS, // Cross-Entropy
+    NN_BCE_LOSS, // Binary Cross-Entropy
     NN_NLL_LOSS // Negative log-likelyhood
 } loss_function_t;
 
@@ -131,6 +132,12 @@ Layer* layer_prepare_matrices(Layer* layer, int group_count) {
     layer->d = mat_malloc(out_count, group_count);
     layer->loss_g = mat_malloc(out_count, group_count);
     layer->dropout_mask = mat_malloc(out_count, group_count);
+    return layer;
+}
+
+Layer* layer_initialize_zero(Layer* layer) {
+    mat_fill_func(layer->w, layer->w, mat_zero_filler_cb, NULL);
+    mat_fill(layer->b, 0.0);
     return layer;
 }
 
@@ -287,7 +294,7 @@ Layer* layer_calculate_loss_gradient(Layer* layer, Mat* outputs, loss_function_t
         case NN_MSE_LOSS:
             mat_sub(layer->loss_g, layer->a, outputs);
             break;
-        case NN_CE_LOSS:
+        case NN_BCE_LOSS:
             mat_sub(layer->loss_g, layer->a, outputs);
             mat_fill_func(layer->z_prime, layer->z, nn_mat_sigmoid_prime_cb, NULL);
             mat_hadamard_div(layer->loss_g, layer->loss_g, layer->z_prime, 1);
@@ -332,7 +339,7 @@ void layer_softmax_jacobians(int count, Mat* jacobians[count],  Mat* a) {
 
 Mat* layer_backward_last(Layer* layer, Mat* outputs, loss_function_t loss_function) {
 
-    if (layer->activation == NN_SIGMOID_ACT && loss_function == NN_CE_LOSS)
+    if (layer->activation == NN_SIGMOID_ACT && loss_function == NN_BCE_LOSS)
         return layer_backward_last_ce(layer, outputs);
 
     if (layer->activation == NN_SOFTMAX_ACT && loss_function == NN_NLL_LOSS)
@@ -453,6 +460,12 @@ NN* nn_set_layers_group_count(NN* nn, int group_count) {
     return nn;
 }
 
+NN* nn_initialize_zero(NN* nn) {
+    for (int i = 0; i < nn->num_layers; i++)
+        layer_initialize_zero(nn->layers[i]);
+    return nn;
+}
+
 NN* nn_initialize_xavier(NN* nn) {
     for (int i = 0; i < nn->num_layers; i++)
         layer_initialize_xavier(nn->layers[i]);
@@ -555,7 +568,7 @@ NN* nn_update_minibatch(NN* nn, float lr, float lambda, Sample* minibatch[], int
     return nn;
 }
 
-float nn_evaluate(NN* nn, Sample* test_samples[], int test_samples_count) {
+float nn_evaluate(NN* nn, Sample* test_samples[], int test_samples_count, float* loss) {
 
     nn_set_layers_group_count(nn, 1);
 
@@ -563,18 +576,44 @@ float nn_evaluate(NN* nn, Sample* test_samples[], int test_samples_count) {
 
     int correct_predictions = 0;
 
-    for (int i = 0; i < test_samples_count; i++) {
-        Mat* inputs = test_samples[i]->inputs;
-        Mat* outputs = nn_feedforward(nn, inputs);
+    if (loss)
+        *loss = 0;
 
-        int prediction = nn_argmax(outputs->data, outputs->rows);
-        int correct = nn_argmax(test_samples[i]->outputs->data, test_samples[i]->outputs->rows);
+    for (int i = 0; i < test_samples_count; i++) {
+        Mat* nn_inputs = test_samples[i]->inputs;
+        Mat* nn_outputs = nn_feedforward(nn, nn_inputs);
+
+        Mat* correct_outputs = test_samples[i]->outputs;
+
+        int prediction = nn_argmax(nn_outputs->data, nn_outputs->rows);
+        int correct = nn_argmax(correct_outputs->data, correct_outputs->rows);
+
+        if (loss) {
+            switch(nn->loss_function) {
+                case NN_MSE_LOSS:
+                    for (int i = 0; i < nn_outputs->rows; i++) {
+                        float diff = nn_outputs->data[i] - correct_outputs->data[i];
+                        *loss += diff*diff;
+                    }
+                    break;
+                case NN_BCE_LOSS:
+                    for (int i = 0; i < nn_outputs->rows; i++) {
+                        float y = correct_outputs->data[i];
+                        float p =  nn_outputs->data[i];
+                        *loss -= y * log(p + 0.00000000001) + (1 - y) * log(1 - p + 0.00000000001);
+                    }
+                    break;
+                case NN_NLL_LOSS:
+                    *loss -= log(nn_outputs->data[correct]);
+                    break;
+            }
+        }
 
         if (prediction == correct)
             correct_predictions++;
-
-        // mat_free(outputs);
     }
+
+    *loss /= test_samples_count;
 
     return (float)correct_predictions / test_samples_count;
 }
@@ -582,7 +621,9 @@ float nn_evaluate(NN* nn, Sample* test_samples[], int test_samples_count) {
 NN* nn_sgd(NN* nn, Sample* training_samples[], int training_samples_count, int epochs,
     int minibatch_size, float lr, float lambda, Sample* test_samples[], int test_samples_count) {
 
-    printf("Starting SGD. Initial accuracy: %.2f%%\n", nn_evaluate(nn, test_samples, test_samples_count) * 100);
+    float loss;
+    printf("Starting SGD. Initial accuracy: %.2f%%\n", nn_evaluate(nn, test_samples, test_samples_count, &loss) * 100);
+    printf("Initial loss: %.4f\n", loss);
 
     clock_t begin_total = clock();
     
@@ -601,8 +642,8 @@ NN* nn_sgd(NN* nn, Sample* training_samples[], int training_samples_count, int e
         float time_spent = (float)(end - begin) / CLOCKS_PER_SEC;
         
         if (test_samples != NULL) {
-            float accuracy = nn_evaluate(nn, test_samples, test_samples_count) * 100;
-            printf("Epoch %d completed - Epoch time: %.2fs - Accuracy: %.2f%%\n", epoch, time_spent, accuracy);
+            float accuracy = nn_evaluate(nn, test_samples, test_samples_count, &loss) * 100;
+            printf("Epoch %d completed - Epoch time: %.2fs - Loss: %.20f - Accuracy: %.2f%%\n", epoch, time_spent, loss, accuracy);
         } else
             printf("Epoch %d completed.\n", epoch);
 

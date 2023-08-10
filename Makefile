@@ -6,4 +6,4 @@ main: mat.c helper.c mnist_loader.c main.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test: mat.c helper.c mnist_loader.c test.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)	
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

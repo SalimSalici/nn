@@ -255,16 +255,41 @@ CPL* cpl_backward(CPL* cpl, Mat* ds, int inputs_count) {
             float* f_fm_d_data = f_featuremap_d.data;
             float* f_mp_a_data = f_maxpoolmap_a.data;
 
-            for (int r = 0; r < cpl->featuremap_side; r++) {
-                for (int c = 0; c < cpl->featuremap_side; c++) {
-                    
-                    if (f_fm_a_data[c + r * cpl->featuremap_side] == f_mp_a_data[(c/2) + (r/2) * f_maxpoolmap_a.cols]) {
-                        f_fm_d_data[c + r * cpl->featuremap_side] = *(cur_ds + ds_down * (c/2) + (r/2) * f_maxpoolmap_a.cols);
-                    } else
-                        f_fm_d_data[c + r * cpl->featuremap_side] = 0;
+            for (int r = 0; r < f_maxpoolmap_a.rows; r++) {
+                for (int c = 0; c < f_maxpoolmap_a.cols; c++) {
+                    if (f_fm_a_data[c*2 + r*2 * cpl->featuremap_side] == f_mp_a_data[c + r * f_maxpoolmap_a.cols]) {
+                        
+                        f_fm_d_data[c*2 + r*2 * cpl->featuremap_side] = *(cur_ds + ds_down * (c + r * f_maxpoolmap_a.cols));
+                        f_fm_d_data[c*2+1 + (r*2+1) * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2 + (r*2+1) * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2+1 + r*2 * cpl->featuremap_side] = 0;
 
+                    } else if (f_fm_a_data[c*2+1 + (r*2+1) * cpl->featuremap_side] == f_mp_a_data[c + r * f_maxpoolmap_a.cols]) {
+
+                        f_fm_d_data[c*2 + r*2 * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2+1 + (r*2+1) * cpl->featuremap_side] = *(cur_ds + ds_down * (c + r * f_maxpoolmap_a.cols));
+                        f_fm_d_data[c*2 + (r*2+1) * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2+1 + r*2 * cpl->featuremap_side] = 0;
+
+                    } else if (f_fm_a_data[c*2 + (r*2+1) * cpl->featuremap_side] == f_mp_a_data[c + r * f_maxpoolmap_a.cols]) {
+
+                        f_fm_d_data[c*2 + r*2 * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2+1 + (r*2+1) * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2 + (r*2+1) * cpl->featuremap_side] = *(cur_ds + ds_down * (c + r * f_maxpoolmap_a.cols));
+                        f_fm_d_data[c*2+1 + r*2 * cpl->featuremap_side] = 0;
+
+                    } else if (f_fm_a_data[c*2+1 + r*2 * cpl->featuremap_side] == f_mp_a_data[c + r * f_maxpoolmap_a.cols]) {
+
+                        f_fm_d_data[c*2 + r*2 * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2+1 + (r*2+1) * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2 + (r*2+1) * cpl->featuremap_side] = 0;
+                        f_fm_d_data[c*2+1 + r*2 * cpl->featuremap_side] = *(cur_ds + ds_down * (c + r * f_maxpoolmap_a.cols));
+
+                    }
                 }
             }
+
+            cur_ds = cur_ds + ds_down * f_maxpoolmap_a.rows * f_maxpoolmap_a.cols;
         }
 
         Mat* cur_fm_z_prime = mat_fill_func(NULL, cur_fm_z, nn_mat_relu_prime_cb, NULL);
@@ -288,11 +313,8 @@ CPL* cpl_update_weights_and_biases(CPL* cpl, float lr, float lambda, int trainin
         Mat* cur_gradients = mat_transpose(cpl->featuremaps_d[i]);
 
         mat_mult_mm(kernels_gradient, cur_inputs, cur_gradients, 1.0, 1.0);
-
     }
 
-    // Mat* ones = mat_malloc(cpl->featuremaps_d[0]->cols, 1);
-    // mat_fill(ones, 1.0);
     Mat* biases_gradient = mat_malloc(cpl->featuremaps_d[0]->rows, 1);
 
     mat_transpose(cpl->featuremaps_d[0]);

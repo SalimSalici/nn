@@ -83,7 +83,6 @@ CNN* cnn_backprop(CNN* cnn, Mat* outputs, int inputs_count) {
 
 CNN* cnn_update_weights_and_biases(CNN* cnn, float lr, float lambda, int minibatch_size, int training_count) {
     nn_update_weights_and_biases(cnn->nn, lr, lambda, training_count);
-    // printf("%f %d\n", lr, training_count);
     cpl_update_weights_and_biases(cnn->cpl, lr, lambda, training_count, minibatch_size);
     return cnn;
 }

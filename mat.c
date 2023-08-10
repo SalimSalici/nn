@@ -34,9 +34,9 @@ void mat_print(Mat* m) {
         float* cur = m->data + m->down * r;
         printf("{");
         for (int c = 0; c < loop_cols; c++) {
-            if(*cur == 0)
-                printf("z\t");
-            else
+            // if(*cur == 0)
+                // printf("zzzzzzzz\t");
+            // else
                 printf("%.2f\t", *cur);
             cur += m->right;
         }
@@ -93,6 +93,33 @@ Mat* mat_cpy(Mat* m) {
     return cpy;
 }
 
+Mat* mat_malloc_from_file(int rows, int cols, char* filename) {
+
+    long int matrix_data_size = sizeof(float)*rows*cols;
+    FILE* fileptr = fopen(filename, "rb");
+    assert(fileptr != NULL);
+    fseek(fileptr, 0, SEEK_END);
+    long int file_size = ftell(fileptr);
+    fseek(fileptr, 0, SEEK_SET);
+    if (matrix_data_size != file_size) {
+        printf("File size doesn't match.\nFile name: %s\nFile size: %ld\nMatrix data size: %ld",
+            filename, file_size, matrix_data_size);
+        exit(0);
+    }
+
+    Mat* m = (Mat*)malloc(sizeof(Mat));
+    m->rows = rows;
+    m->cols = cols;
+    m->data = (float*)malloc(sizeof(float) *rows * cols);
+    m->t = 0;
+    m->right = 1;
+    m->down = cols;
+    fread(m->data, sizeof(float)*rows*cols, 1, fileptr);
+
+    fclose(fileptr);
+    return m;
+}
+
 void mat_free(Mat* m) {
     free(m->data);
     free(m);
@@ -103,6 +130,14 @@ int mat_equals(Mat* a, Mat* b) {
     assert(!a->t && !b->t);
     assert(a->rows == b->rows);
     assert(a->cols == b->cols);
+    for (int i = 0; i < a->rows * a->cols; i++) {
+        if (a->data[i] != b->data[i]) return 0;
+    }
+    return 1;
+}
+
+int mat_equals_bin(Mat* a, Mat* b) {
+    assert(a->rows * a->cols == b->rows * b->cols);
     for (int i = 0; i < a->rows * a->cols; i++) {
         if (a->data[i] != b->data[i]) return 0;
     }
