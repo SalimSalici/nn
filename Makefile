@@ -7,3 +7,6 @@ main: mat.c helper.c mnist_loader.c main.c
 
 test: mat.c helper.c mnist_loader.c test.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+cifar: mat.c helper.c mnist_loader.c cifar.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

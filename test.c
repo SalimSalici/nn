@@ -10,7 +10,7 @@
 #include "helper.h"
 #include "openblas_config.h"
 #include "cblas.h"
-#include "conv.h"
+#include "cnn.h"
 
 int main(int argc, char* argv[]) {
     
@@ -37,8 +37,8 @@ int main(int argc, char* argv[]) {
 
     CNN* cnn = cnn_malloc(cpl, nn, minibatch_size);
 
-    int training_samples_count = 60000;
-    int test_samples_count = 10000;
+    int training_samples_count = 6000;
+    int test_samples_count = 1000;
     int epochs = 60;
     float lr = 0.05;
     float lambda = 0;
@@ -62,20 +62,8 @@ int main(int argc, char* argv[]) {
     MnistSample* training_data = mnist_load_samples("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte", 0, training_samples_count, black, white);
     MnistSample* test_data = mnist_load_samples("data/t10k-images.idx3-ubyte", "data/t10k-labels.idx1-ubyte", 0, test_samples_count, black, white);
 
-    Sample** training_samples = mnist_samples_to_samples(training_data, training_samples_count, black, white);
-    Sample** test_samples = mnist_samples_to_samples(test_data, test_samples_count, black, white);
-
-    for (int i = 0; i < training_samples_count; i++) {
-        training_samples[i]->inputs->rows = 28;
-        training_samples[i]->inputs->cols = 28;
-        training_samples[i]->inputs->down = 28;
-    }
-
-    for (int i = 0; i < test_samples_count; i++) {
-        test_samples[i]->inputs->rows = 28;
-        test_samples[i]->inputs->cols = 28;
-        test_samples[i]->inputs->down = 28;
-    }
+    Sample** training_samples = mnist_samples_to_conv_samples(training_data, training_samples_count, black, white);
+    Sample** test_samples = mnist_samples_to_conv_samples(test_data, test_samples_count, black, white);
 
     cnn_im2col_samples(cnn, training_samples, training_samples_count);
     cnn_im2col_samples(cnn, test_samples, test_samples_count);

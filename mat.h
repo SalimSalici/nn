@@ -21,6 +21,7 @@ Mat* mat_malloc(int rows, int cols);
 Mat* mat_malloc_cpy(int rows, int cols, float cpy[rows][cols]);
 Mat* mat_cpy(Mat* m);
 Mat* mat_malloc_from_file(int rows, int cols, char* filename);
+Mat* mat_malloc_nodata(int rows, int cols);
 void mat_free(Mat* m);
 int mat_equals(Mat* a, Mat* b);
 int mat_equals_bin(Mat* a, Mat* b);

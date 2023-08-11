@@ -120,6 +120,17 @@ Mat* mat_malloc_from_file(int rows, int cols, char* filename) {
     return m;
 }
 
+Mat* mat_malloc_nodata(int rows, int cols) {
+    Mat* m = (Mat*)malloc(sizeof(Mat));
+    m->rows = rows;
+    m->cols = cols;
+    m->data = NULL;
+    m->t = 0;
+    m->right = 1;
+    m->down = cols;
+    return m;
+}
+
 void mat_free(Mat* m) {
     free(m->data);
     free(m);

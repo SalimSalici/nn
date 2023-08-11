@@ -6,9 +6,13 @@
 #include "mat.h"
 #include "sample.h"
 
+// #define MNIST_SHADES_LEN 5
+#define MNIST_SHADES_LEN 10
+
 const int __mnist_image_size = 28*28;
 
-const char __mnist_loader_shades[MNIST_SHADES_LEN] = {'.', '-', 'o', '#', '@'};
+// const char __mnist_loader_shades[MNIST_SHADES_LEN] = {'.', '-', 'o', '#', '@'};
+const char __mnist_loader_shades[MNIST_SHADES_LEN] = {' ','.', ':', '-', '=', '+', '*', '#', '%', '@'};
 
 uint32_t map_uint32(uint32_t in) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -76,7 +80,7 @@ Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count, float b
     for (int i = 0; i < count; i++) {
         samples[i] = (Sample*)malloc(sizeof(Sample));
         
-        samples[i]->inputs = mat_malloc(28*28, 1);
+        samples[i]->inputs = mat_malloc_nodata(28*28, 1);
         samples[i]->inputs->data = mnist_samples[i].data;
 
         samples[i]->outputs = mat_malloc(10, 1);
@@ -92,7 +96,7 @@ Sample** mnist_samples_to_conv_samples(MnistSample* mnist_samples, int count, fl
     for (int i = 0; i < count; i++) {
         samples[i] = (Sample*)malloc(sizeof(Sample));
         
-        samples[i]->inputs = mat_malloc(28, 28);
+        samples[i]->inputs = mat_malloc_nodata(28, 28);
         samples[i]->inputs->data = mnist_samples[i].data;
 
         samples[i]->outputs = mat_malloc(10, 1);
