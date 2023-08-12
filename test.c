@@ -29,16 +29,16 @@ int main(int argc, char* argv[]) {
 
     CPL* cpl = cpl_malloc(minibatch_size, feature_count, kernel_stride, maxpool_stride, input_original_side, kernel_side, maxpool_side);
     NN* nn = nn_malloc(NN_NLL_LOSS);
-    nn_add_layer(nn, layer_malloc(0, 12*12*feature_count, NN_NONE_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(12*12*feature_count, 100, NN_RELU_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(100, 100, NN_RELU_ACT, 0.0));
+    nn_add_layer(nn, layer_malloc(0, 12*12*feature_count, NN_NONE_ACT, 0.2));
+    nn_add_layer(nn, layer_malloc(12*12*feature_count, 100, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(100, 100, NN_RELU_ACT, 0.5));
     nn_add_layer(nn, layer_malloc(100, 10, NN_SOFTMAX_ACT, 0.0));
     nn_initialize_xavier(nn);
 
     CNN* cnn = cnn_malloc(cpl, nn, minibatch_size);
 
-    int training_samples_count = 6000;
-    int test_samples_count = 1000;
+    int training_samples_count = 60000;
+    int test_samples_count = 10000;
     int epochs = 60;
     float lr = 0.05;
     float lambda = 0;
