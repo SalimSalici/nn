@@ -153,13 +153,8 @@ Layer* layer_initialize_xavier(Layer* layer) {
 }
 
 Layer* layer_initialize_standard(Layer* layer) {
-    float* norm_args[2];
-    float mean = 0.0;
-    float sd = 1 / sqrt(layer->in_count);
-    norm_args[0] = &mean;
-    norm_args[1] = &sd;
-    mat_fill_func(layer->w, layer->w, mat_standard_norm_filler_cb, norm_args);
-    mat_fill_func(layer->b, layer->b, mat_standard_norm_filler_cb, norm_args);
+    mat_fill_func(layer->w, layer->w, mat_standard_norm_filler_cb, NULL);
+    mat_fill_func(layer->b, layer->b, mat_standard_norm_filler_cb, NULL);
     return layer;
 }
 
