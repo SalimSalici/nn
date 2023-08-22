@@ -5,3 +5,4 @@ lib/*
 nn.bat
 test.exe
 data/*
+cifar.exe
