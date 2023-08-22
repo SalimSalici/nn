@@ -134,19 +134,34 @@ Mat* cpl_im2col(Mat* res, Mat* inputs, int kernel_side, int kernel_stride) {
 
 CPL* cpl_forward_conv(CPL* cpl, Mat* inputs[], int inputs_count) {
     assert(inputs_count <= cpl->group_count);
+
+    Mat* ones = cpl->ones;
+    Mat* biases = mat_malloc_nodata(cpl->feature_count, 1);
+    biases->data = cpl->biases;
+
     for (int i = 0; i < inputs_count; i++) {
         // cpl->inputs[i] = cpl_im2col(cpl->inputs[i], inputs[i], cpl->kernel_side, cpl->kernel_stride);
         cpl->inputs[i] = inputs[i];
 
-        float* cur = cpl->featuremaps_z[i]->data;
-        for (int r = 0; r < cpl->featuremaps_z[i]->rows; r++) {
-            float b = cpl->biases[r];
-            for (int c = 0; c < cpl->featuremaps_z[i]->cols; c++) {
-                *cur = b;
-                cur++;
-            }
-        }
+        // float* cur = cpl->featuremaps_z[i]->data;
+        // for (int r = 0; r < cpl->featuremaps_z[i]->rows; r++) {
+        //     float b = cpl->biases[r];
 
+        //     for (int c = 0; c < cpl->featuremaps_z[i]->cols; c++) {
+        //         *cur = b;
+        //         cur++;
+        //     }
+        // }
+
+        // Initialize featuremaps with biases
+        // This substitutes the above commented lines of code
+        cblas_sgemm(CblasRowMajor,
+            CblasNoTrans, CblasNoTrans,
+            biases->rows, ones->rows, 1,
+            1, biases->data, biases->cols, ones->data, ones->rows,
+            0, cpl->featuremaps_z[i]->data, cpl->featuremaps_z[i]->cols);
+
+        // Convolution
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                     cpl->kernels_rows, cpl->input_cols, cpl->kernels_cols,
                     1.0, cpl->kernels->data, cpl->kernels_cols, cpl->inputs[i]->data, cpl->inputs[i]->cols,
@@ -154,6 +169,9 @@ CPL* cpl_forward_conv(CPL* cpl, Mat* inputs[], int inputs_count) {
 
         mat_fill_func(cpl->featuremaps_a[i], cpl->featuremaps_z[i], nn_mat_relu_cb, NULL);
     }
+
+    free(biases);
+
     return cpl;
 }
 
