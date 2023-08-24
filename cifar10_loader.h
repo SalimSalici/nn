@@ -17,7 +17,6 @@ typedef struct Cifar10Sample {
 
 Cifar10Sample* cifar10_load_samples(char* data_file_name, size_t offset, size_t count, float black, float white) {
 
-
     uint8_t buffer[32*32*3];
 
     FILE* datafileptr = fopen(data_file_name, "rb");
@@ -38,6 +37,39 @@ Cifar10Sample* cifar10_load_samples(char* data_file_name, size_t offset, size_t 
 
     fclose(datafileptr);
 
+    return samples;
+}
+
+Sample** cifar10_samples_to_samples(Cifar10Sample* cifar10_samples, int count, float black, float white) {
+    Sample** samples = (Sample**)malloc(sizeof(Sample*) * count);
+
+    for (int i = 0; i < count; i++) {
+        samples[i] = (Sample*)malloc(sizeof(Sample));
+        
+        samples[i]->inputs = mat_malloc_nodata(32*32*3, 1);
+        samples[i]->inputs->data = cifar10_samples[i].data;
+
+        samples[i]->outputs = mat_malloc(10, 1);
+        mat_fill(samples[i]->outputs, black);
+        samples[i]->outputs->data[cifar10_samples[i].label] = white;
+    }
+    return samples;
+}
+
+Sample** cifar10_samples_to_samples_start_from(Sample** samples, Cifar10Sample* cifar10_samples, int start_from, int count, float black, float white) {
+    for (int i = 0; i < count; i++) {
+
+        int samples_i = start_from + i;
+
+        samples[samples_i] = (Sample*)malloc(sizeof(Sample));
+        
+        samples[samples_i]->inputs = mat_malloc_nodata(32*32*3, 1);
+        samples[samples_i]->inputs->data = cifar10_samples[i].data;
+
+        samples[samples_i]->outputs = mat_malloc(10, 1);
+        mat_fill(samples[samples_i]->outputs, black);
+        samples[samples_i]->outputs->data[cifar10_samples[i].label] = white;
+    }
     return samples;
 }
 

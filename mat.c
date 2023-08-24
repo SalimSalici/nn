@@ -72,6 +72,17 @@ Mat* mat_malloc(int rows, int cols) {
     return m;
 }
 
+Mat* mat_calloc(int rows, int cols) {
+    Mat* m = (Mat*)malloc(sizeof(Mat));
+    m->rows = rows;
+    m->cols = cols;
+    m->data = (float*)calloc(rows * cols, sizeof(float));
+    m->t = 0;
+    m->right = 1;
+    m->down = cols;
+    return m;
+}
+
 Mat* mat_malloc_cpy(int rows, int cols, float cpy[rows][cols]) {
     Mat* m = (Mat*)malloc(sizeof(Mat));
     m->rows = rows;
@@ -135,6 +146,15 @@ void mat_free(Mat* m) {
     free(m->data);
     free(m);
     return;
+}
+
+Mat* mat_view(Mat* m, int rows, int cols) {
+    assert(m->t != 1);
+    assert(rows * cols == m->rows * m->cols);
+    m->rows = rows;
+    m->cols = cols;
+    m->down = cols;
+    return m;
 }
 
 int mat_equals(Mat* a, Mat* b) {
