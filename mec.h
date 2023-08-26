@@ -150,7 +150,7 @@ Tensor* mec_conv_backwards_prev(Mat* kernel, Tensor* next_grad, int kh, int kw, 
 
     // int H = next_grad->dim0;
 
-    for (int h = 0; h < in_h; h++) {
+    for (int h = 0; h < next_grad->dim0; h++) {
 
         // float* other_start = other->mat->data + h * stride * C_in * kw;
         float* next_grad_start = next_grad->data + h * W_out * C_out * N;
@@ -164,6 +164,37 @@ Tensor* mec_conv_backwards_prev(Mat* kernel, Tensor* next_grad, int kh, int kw, 
     }
 
     return grad;
+}
+
+Tensor* mec2im_input_additive(Tensor* mecced, int kh, int kw, int stride) {
+
+    int N = mecced->dim0;
+    int H = mecced->dim2 / kw;
+    int W = H;
+    int C = mecced->dim3;
+
+    int out_w = (W - kw) / stride + 1;
+
+    Tensor* result = tensor_calloc(N, H, W, C);
+
+    float* mecced_start = mecced->data;
+
+    for (int n = 0; n < N; n++) {
+
+        float* cur_start_res = result->data + n * H * W * C;
+
+        for (int w_o = 0; w_o < out_w; w_o++) {
+            int w_s = w_o * C * stride;
+            for (int h_i = 0; h_i < H; h_i++) {
+
+                for (int kw_i = 0; kw_i < kw * C; kw_i++) {
+                    cur_start_res[w_s + h_i * W * C + kw_i] += *mecced_start;
+                    mecced_start++;
+                }
+            }
+        }
+    }
+    return result;
 }
 
 #endif

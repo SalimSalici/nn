@@ -43,3 +43,7 @@ int max (int a, int b) {
 int min (int a, int b) {
     return a < b ? a : b;
 }
+
+int is_divisible(int x, int y) {
+    return fabs(fmod((float)x, (float)y)) < 0.000001;
+}

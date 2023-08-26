@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <math.h>
+#include <immintrin.h>  // AVX2
 #include "helper.h"
 #include "openblas_config.h"
 #include "cblas.h"
@@ -568,9 +569,29 @@ Mat* mat_hadamard_prod(Mat* res, Mat* a, Mat* b, float s) {
     float* a_data = a->data;
     float* b_data = b->data;
     float* res_data = res->data;
-    for (int i = 0; i < a->rows * a->cols; i++) {
-        res_data[i] = s * a_data[i] * b_data[i];
+    int elems = a->rows * a->cols;
+
+    if (s != 1 || a->rows * a->cols < 8) {
+
+        // printf("old\n");
+        
+        for (int i = 0; i < elems; i++)
+            res_data[i] = s * a_data[i] * b_data[i];
+
+    } else {
+        // printf("new\n");
+        int i;
+        for (i = 0; i + 8 < elems; i += 8) {
+            __m256 a_v = _mm256_loadu_ps(a_data + i);
+            __m256 b_v = _mm256_loadu_ps(b_data + i);
+            __m256 result = _mm256_mul_ps(a_v, b_v);
+            _mm256_storeu_ps(res_data + i, result);
+        }
+        for (; i < elems; i++) {
+            res_data[i] = a_data[i] * b_data[i];
+        }
     }
+
     return res;
 }
 
