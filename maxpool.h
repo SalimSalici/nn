@@ -2,7 +2,6 @@
 #define _MAXPOOL_H
 
 typedef struct Maxpool {
-
     int n;
     int h_in;
     int w_in;
@@ -15,12 +14,11 @@ typedef struct Maxpool {
     int h_out;
     int w_out;
 
-    Mat* inputs;
-    Mat* outputs;
+    Mat* inputs; // (H, N, W, C) tensor format - (H, N*W*C) matrix format
+    Mat* outputs; // (N, H, W, C) tensor format - (N*H, W*C) matrix format
     Mat* outputs_d;
 
     int* stored_indeces;
-
 } Maxpool;
 
 Maxpool* maxpool_malloc(int n, int h_in, int w_in, int c, int mh, int mw, int stride) {
@@ -129,7 +127,6 @@ Maxpool* maxpool_forward(Maxpool* maxpool, Mat* inputs) {
     }
 
     return maxpool;
-
 }
 
 #endif
