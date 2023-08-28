@@ -38,7 +38,7 @@ void mat_print(Mat* m) {
             // if(*cur == 0)
                 // printf("zzzzzzzz\t");
             // else
-                printf("%.2f\t", *cur);
+                printf("%f\t", *cur);
             cur += m->right;
         }
         printf("}\n");
@@ -151,7 +151,7 @@ void mat_free(Mat* m) {
 
 Mat* mat_view(Mat* m, int rows, int cols) {
     assert(m->t != 1);
-    assert(rows * cols == m->rows * m->cols);
+    // assert(rows * cols == m->rows * m->cols);
     m->rows = rows;
     m->cols = cols;
     m->down = cols;
@@ -262,7 +262,10 @@ Mat* mat_mult_mv(Mat* res, Mat* a, Mat* b, float ab_s, float c_s) {
 
     #ifdef MAT_USE_OPENBLAS
 
-    assert(b->cols == 1);
+    if (!b->t)
+        assert(b->cols == 1);
+    else
+        assert(b->rows == 1);
 
     if (res == NULL) {
         int rows, cols;
@@ -702,12 +705,15 @@ Mat* mat_scale(Mat* res, Mat* a, float f) {
 
 Mat* mat_fill(Mat* m, float f) {
     float* cur = m->data;
-    for (int r = 0; r < m->rows; r++) {
-        for (int c = 0; c < m->cols; c++) {
-            *cur = f;
-            cur++;
-        }
-    }
+    int elems = m->rows * m->cols;
+    for (int i = 0; i < elems; i++)
+        cur[i] = f;
+    // for (int r = 0; r < m->rows; r++) {
+    //     for (int c = 0; c < m->cols; c++) {
+    //         *cur = f;
+    //         cur++;
+    //     }
+    // }
     return m;
 }
 
@@ -753,19 +759,39 @@ float mat_min(Mat* m) {
     return min;
 }
 
-const char __mat_shades[5] = {'.', '-', 'o', '#', '@'};
+// const char __mat_shades[5] = {'.', '-', 'o', '#', '@'};
+const char __mat_shades[10] = {' ','.', ':', '-', '=', '+', '*', '#', '%', '@'};
 
-void mat_print_shades(Mat* m, float black, float white) {
-    float* m_data = m->data;
+void mat_print_shades(Mat* m) {
+    float black = mat_min(m);
+    float white = mat_max(m);
+    // float* m_data = m->data;
 
-    for (int i = 0; i < m->rows * m->cols; i++) {
-        float normalized;
-        if (white - black != 0) normalized = (m_data[i] - black) / (white - black);
-        else normalized = 0;
-        int shade_idx = (int)round(normalized * (float)(5 - 1));
-        char c = __mat_shades[shade_idx];
-        printf("%c", c);
-        if (i % m->cols == m->cols - 1)
-            printf("\n");
+    // for (int i = 0; i < m->rows * m->cols; i++) {
+    //     float normalized;
+    //     if (white - black != 0) normalized = (m_data[i] - black) / (white - black);
+    //     else normalized = 0;
+    //     int shade_idx = (int)round(normalized * (float)(10 - 1));
+    //     char c = __mat_shades[shade_idx];
+    //     printf("%c", c);
+    //     if (i % m->cols == m->cols - 1)
+    //         printf("\n");
+    // }
+
+    int loop_rows = m->t ? m->cols : m->rows;
+    int loop_cols = m->t ? m->rows : m->cols;
+    for (int r = 0; r < loop_rows; r++) {
+        float* cur = m->data + m->down * r;
+        printf("{");
+        for (int c = 0; c < loop_cols; c++) {
+            float normalized;
+            if (white - black != 0) normalized = (*cur - black) / (white - black);
+            else normalized = 0;
+            int shade_idx = (int)round(normalized * (float)(10 - 1));
+            char c = __mat_shades[shade_idx];
+            printf("%c", c);
+            cur += m->right;
+        }
+        printf("}\n");
     }
 }

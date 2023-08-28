@@ -152,6 +152,15 @@ Layer* layer_initialize_xavier(Layer* layer) {
     return layer;
 }
 
+Layer* layer_initialize_normal(Layer* layer, float mean, float sd) {
+    float* norm_args[2];
+    norm_args[0] = &mean;
+    norm_args[1] = &sd;
+    mat_fill_func(layer->w, layer->w, mat_norm_filler_cb, norm_args);
+    mat_fill(layer->b, 0.0);
+    return layer;
+}
+
 Layer* layer_initialize_standard(Layer* layer) {
     mat_fill_func(layer->w, layer->w, mat_standard_norm_filler_cb, NULL);
     mat_fill_func(layer->b, layer->b, mat_standard_norm_filler_cb, NULL);
@@ -410,6 +419,21 @@ Mat* layer_backward(Layer* layer, Layer* next_layer) {
     return layer->d;
 }
 
+Mat* layer_backward_for_cmpl(Layer* layer, Layer* next_layer) {
+
+    mat_view(layer->d, next_layer->d->cols, next_layer->w->cols);
+
+    layer->d = mat_mult_mm(layer->d, mat_transpose(next_layer->d), next_layer->w, 1.0, 0.0);
+    mat_transpose(next_layer->d);
+
+    if (!layer->is_last && layer->dropout_rate != 0) {
+        layer->d = mat_hadamard_prod(layer->d, layer->d, mat_transpose(layer->dropout_mask), 1);
+        mat_transpose(layer->dropout_mask);
+    }
+
+    return layer->d;
+}
+
 Layer* layer_update_weights_and_biases(Layer* layer, Layer* prev_layer, float lr, float lambda, int training_count) {
 
     float reg_factor = lr * lambda / (float)training_count;
@@ -464,6 +488,12 @@ NN* nn_initialize_zero(NN* nn) {
 NN* nn_initialize_xavier(NN* nn) {
     for (int i = 0; i < nn->num_layers; i++)
         layer_initialize_xavier(nn->layers[i]);
+    return nn;
+}
+
+NN* nn_initialize_normal(NN* nn, float mean, float sd) {
+    for (int i = 0; i < nn->num_layers; i++)
+        layer_initialize_normal(nn->layers[i], mean, sd);
     return nn;
 }
 

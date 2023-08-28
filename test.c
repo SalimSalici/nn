@@ -10,7 +10,7 @@
 #include "helper.h"
 #include "openblas_config.h"
 #include "cblas.h"
-#include "cnn.h"
+#include "cnn_old.h"
 
 int main(int argc, char* argv[]) {
     
@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     goto_set_num_threads(1);
     openblas_set_num_threads(1);
 
-    int minibatch_size = 50;
+    int minibatch_size = 10;
     int feature_count = 20;
     int kernel_stride = 1;
     int maxpool_stride = 2;
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
 
     int training_samples_count = 60000;
     int test_samples_count = 10000;
-    int epochs = 60;
+    int epochs = 30;
     float lr = 0.05;
     float lambda = 0;
     float black = 0;

@@ -48,6 +48,6 @@ Mat* mat_diag_fill(Mat* m, float f);
 float mat_max(Mat* m);
 float mat_min(Mat* m);
 void mat_print(Mat* m);
-void mat_print_shades(Mat* m, float black, float white);
+void mat_print_shades(Mat* m);
 
 #endif

@@ -1,51 +1,100 @@
 #ifndef _CNN_H
 #define _CNN_H
 
-#include <string.h>
-#include "mat.h"
-#include "cpl.h"
 #include "nn.h"
+#include "cmpl.h"
+
+#define CMPL_MAX_LAYERS 32
 
 typedef struct CNN {
-    CPL* cpl;
+    int group_count; // Basically number of samples in a minibatch (N)
+    int num_cmpl_layers;
+    Cmpl* cmpl_layers[CMPL_MAX_LAYERS];
     NN* nn;
-    int group_count; // minibatch size
 } CNN;
 
-CNN* cnn_malloc(CPL* cpl, NN* nn, int group_count) {
+CNN* cnn_malloc() {
     CNN* cnn = (CNN*)malloc(sizeof(CNN));
-    cnn->cpl = cpl;
-    cnn->nn = nn;
-    cnn->group_count = group_count;
+    for (int i = 0; i < CMPL_MAX_LAYERS; i++)
+        cnn->cmpl_layers[i] = NULL;
+    cnn->nn = NULL;
+    cnn->num_cmpl_layers = 0;
     return cnn;
 }
 
 void cnn_free(CNN* cnn) {
-    cpl_free(cnn->cpl);
+    for (int i = 0; i < cnn->num_cmpl_layers; i++)
+        cmpl_free(cnn->cmpl_layers[i]);
     nn_free(cnn->nn);
+    free(cnn);
 }
 
-Mat* cnn_merge_maxpools_for_nn(CNN* cnn, int inputs_count) {
+CNN* cnn_add_cmpl_layer(CNN* cnn, Cmpl* cmpl) {
+    cnn->cmpl_layers[cnn->num_cmpl_layers] = cmpl;
+
+    if (cnn->num_cmpl_layers == 0)
+        cmpl->is_first = 1;
+    else 
+        cmpl->is_first = 0;
+
+    cnn->num_cmpl_layers++;
+    return cnn;
+}
+
+CNN* cnn_set_nn(CNN* cnn, NN* nn) {
+    cnn->nn = nn;
+    return cnn;
+}
+
+Mat* cnn_feedforward(CNN* cnn, Mat** inputs, int minibatch_count) {
+    assert(cnn->num_cmpl_layers > 0);
+    assert(cnn->group_count == minibatch_count);
+
+    // Forward inputs through all convolutional maxpool layers
+    Mat* cmpl_outputs = cmpl_forward(cnn->cmpl_layers[0], NULL, inputs);
+
+    for (int i = 1; i < cnn->num_cmpl_layers; i++) {
+        cmpl_outputs = cmpl_forward(cnn->cmpl_layers[i], cmpl_outputs, NULL);
+    }
+
+    Cmpl* last_cmpl = cnn->cmpl_layers[cnn->num_cmpl_layers - 1];
+
+    // Prerare output of last convolutional maxpool layer to be in the right shape for ffnn
+    mat_view(cmpl_outputs, last_cmpl->maxpool->n, last_cmpl->maxpool->h_out * last_cmpl->maxpool->w_out * last_cmpl->maxpool->c);
+    mat_transpose(cmpl_outputs);
+    
+    // Forward through all fully connected layers
+    Mat* nn_outputs = nn_feedforward(cnn->nn, cmpl_outputs);
+
+    // Return to original shape of last convolutional maxpool layer
+    mat_transpose(cmpl_outputs);
+    mat_view(cmpl_outputs, last_cmpl->maxpool->n * last_cmpl->maxpool->h_out, last_cmpl->maxpool->w_out * last_cmpl->maxpool->c);
+
+    return nn_outputs;
+}
+
+CNN* cnn_backprop(CNN* cnn, Mat* outputs, int inputs_count) {
     assert(inputs_count <= cnn->group_count);
 
-    CPL* cpl = cnn->cpl;
+    nn_backprop(cnn->nn, outputs);
 
-    Mat* res = mat_malloc(inputs_count, cpl->maxpoolmap_side * cpl->maxpoolmap_side * cpl->feature_count);
-    float* cur_res = res->data;
+    Mat* ds = layer_backward_for_cmpl(cnn->nn->layers[0], cnn->nn->layers[1]);
 
-    for (int i = 0; i < inputs_count; i++) {
-        memcpy(cur_res + i * res->down, cpl->maxpoolmaps_a[i]->data, sizeof(float) * res->cols);
+    for(int i = cnn->num_cmpl_layers - 1; i >= 0; i--) {
+        ds = cmpl_backward(cnn->cmpl_layers[i], ds);
     }
-    if (inputs_count != 1)
-        return mat_transpose(res);
-    else {
-        int tmp = res->rows;
-        res->rows = res->cols;
-        res->cols = tmp;
-        res->right = 1;
-        res->down = res->cols;
-        return res;
+    
+    return cnn;
+}
+
+CNN* cnn_set_group_count(CNN* cnn, int n) {
+    cnn->group_count = n;
+    for (int i = 0; i < cnn->num_cmpl_layers; i++) {
+        conv2d_set_n(cnn->cmpl_layers[i]->conv2d, n);
+        maxpool_set_n(cnn->cmpl_layers[i]->maxpool, n);
     }
+    nn_set_layers_group_count(cnn->nn, n);
+    return cnn;
 }
 
 Mat* cnn_merge_outputs(Sample* samples[], int samples_count) {
@@ -58,35 +107,6 @@ Mat* cnn_merge_outputs(Sample* samples[], int samples_count) {
     return res_outputs;
 }
 
-Mat* cnn_feedforward(CNN* cnn, Mat* inputs[], int inputs_count) {
-    assert(inputs_count <= cnn->group_count);
-
-    cpl_forward(cnn->cpl, inputs, inputs_count);
-
-    Mat* nn_inputs = cnn_merge_maxpools_for_nn(cnn, inputs_count);
-
-    Mat* nn_output = nn_feedforward(cnn->nn, nn_inputs);
-    mat_free(nn_inputs);
-
-    return nn_output;
-}
-
-CNN* cnn_backprop(CNN* cnn, Mat* outputs, int inputs_count) {
-    assert(inputs_count <= cnn->group_count);
-
-    nn_backprop(cnn->nn, outputs);
-    layer_backward(cnn->nn->layers[0], cnn->nn->layers[1]);
-    cpl_backward(cnn->cpl, cnn->nn->layers[0]->d, inputs_count);
-    
-    return cnn;
-}
-
-CNN* cnn_update_weights_and_biases(CNN* cnn, float lr, float lambda, int minibatch_size, int training_count) {
-    nn_update_weights_and_biases(cnn->nn, lr, lambda, training_count);
-    cpl_update_weights_and_biases(cnn->cpl, lr, lambda, training_count, minibatch_size);
-    return cnn;
-}
-
 CNN* cnn_update_minibatch(CNN* cnn, float lr, float lambda, Sample* minibatch[], int minibatch_size, int training_count) {
     
     nn_set_mode(cnn->nn, NN_TRAINING);
@@ -96,9 +116,18 @@ CNN* cnn_update_minibatch(CNN* cnn, float lr, float lambda, Sample* minibatch[],
         inputs[i] = minibatch[i]->inputs;
 
     cnn_feedforward(cnn, inputs, minibatch_size);
+    
     Mat* correct_outputs = cnn_merge_outputs(minibatch, minibatch_size);
     cnn_backprop(cnn, correct_outputs, minibatch_size);
-    cnn_update_weights_and_biases(cnn, lr, lambda, minibatch_size, training_count);
+    
+    // Cmpl* last_cmpl = cnn->cmpl_layers[cnn->num_cmpl_layers - 1];
+    // cmpl_update_weights_and_biases(last_cmpl, lr);
+
+    for (int i = 0; i < cnn->num_cmpl_layers; i++) {
+        cmpl_update_weights_and_biases(cnn->cmpl_layers[i], lr);
+    }
+
+    nn_update_weights_and_biases(cnn->nn, lr, lambda, training_count);
 
     mat_free(correct_outputs);
 
@@ -109,7 +138,7 @@ float cnn_evaluate(CNN* cnn, Sample* test_samples[], int test_samples_count) {
 
     NN* nn = cnn->nn;
 
-    nn_set_layers_group_count(nn, 1);
+    cnn_set_group_count(cnn, 1);
     nn_set_mode(nn, NN_INFERENCE);
 
     int correct_predictions = 0;
@@ -123,8 +152,6 @@ float cnn_evaluate(CNN* cnn, Sample* test_samples[], int test_samples_count) {
 
         if (prediction == correct)
             correct_predictions++;
-
-        // mat_free(outputs);
     }
 
     return (float)correct_predictions / test_samples_count;
@@ -134,8 +161,11 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
     int minibatch_size, float lr, float lambda, Sample* test_samples[], int test_samples_count) {
 
     printf("Starting cnn SGD. \nParameters: epochs=%d, minibatch_size=%d, lr=%f, lambda=%f\n", epochs, minibatch_size, lr, lambda);
-
     printf("Initial accuracy: %.2f%%\n\n", cnn_evaluate(cnn, test_samples, test_samples_count) * 100);
+
+    // mat_print(cnn->cmpl_layers[0]->conv2d->kernels);
+    // printf("---------\n");
+    // mat_print(cnn->cmpl_layers[0]->conv2d->biases);
 
     clock_t begin_total = clock();
     
@@ -150,7 +180,7 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
 
         shuffle_pointers((void*)training_samples, training_samples_count);
 
-        nn_set_layers_group_count(cnn->nn, minibatch_size);
+        cnn_set_group_count(cnn, minibatch_size);
 
         for (int batch_offset = 0; batch_offset < training_samples_count; batch_offset += minibatch_size)
             cnn_update_minibatch(cnn, lr, lambda, training_samples + batch_offset, minibatch_size, training_samples_count);
@@ -160,7 +190,19 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
         
         if (test_samples != NULL) {
             float accuracy = cnn_evaluate(cnn, test_samples, test_samples_count) * 100;
+            // float accuracy = 0;
             printf("Epoch %d completed - Epoch time: %.2fs - Accuracy: %.2f%%\n", epoch, time_spent, accuracy);
+
+            // mat_print_shades(cnn->cmpl_layers[1]->maxpool->inputs_d);
+            // if (accuracy < 50) {
+            //     mat_print(cnn->cmpl_layers[0]->conv2d->kernels);
+            //     printf("---------\n");
+            //     mat_print(cnn->cmpl_layers[0]->conv2d->biases);
+            //     printf("---------\n");
+            //     mat_print(cnn->cmpl_layers[0]->conv2d->conv_hnwc_d);
+            //     printf("---------\n");
+            //     printf("---------\n");
+            // }
         } else
             printf("Epoch %d completed.\n", epoch);
 
@@ -170,18 +212,6 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
     float time_spent_total = (float)(end_total - begin_total) / CLOCKS_PER_SEC;
     printf("Training completed. Total time: %.2fs\n", time_spent_total);
     printf("Parameters: epochs=%d, minibatch_size=%d, lr=%f, lambda=%f\n", epochs, minibatch_size, lr, lambda);
-
-    return cnn;
-}
-
-CNN* cnn_im2col_samples(CNN* cnn, Sample* samples[], int samples_count) {
-
-    CPL* cpl = cnn->cpl;
-    for (int i = 0; i < samples_count; i++) {
-        Mat* new_inputs = mat_malloc(cpl->input_rows, cpl->input_cols);
-        new_inputs = cpl_im2col(new_inputs, samples[i]->inputs, cpl->kernel_side, cpl->kernel_stride);
-        samples[i]->inputs = new_inputs;
-    }
 
     return cnn;
 }

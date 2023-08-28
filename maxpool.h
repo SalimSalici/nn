@@ -14,9 +14,8 @@ typedef struct Maxpool {
     int h_out;
     int w_out;
 
-    Mat* inputs; // (H, N, W, C) tensor format - (H, N*W*C) matrix format
+    Mat* inputs_d; // (H, N, W, C) tensor format - (H, N*W*C) matrix format
     Mat* outputs; // (N, H, W, C) tensor format - (N*H, W*C) matrix format
-    Mat* outputs_d;
 
     int* stored_indeces;
 } Maxpool;
@@ -33,22 +32,22 @@ Maxpool* maxpool_malloc(int n, int h_in, int w_in, int c, int mh, int mw, int st
         exit(1);
     }
 
-    Maxpool* maxpool  = (Maxpool*)malloc(sizeof(Maxpool));
-    maxpool->n       = n;
-    maxpool->h_in    = h_in;
-    maxpool->w_in    = w_in;
-    maxpool->c    = c;
-    maxpool->mh      = mh;
-    maxpool->mw      = mw;
-    maxpool->stride  = stride;
+    Maxpool* maxpool    = (Maxpool*)malloc(sizeof(Maxpool));
+    maxpool->n          = n;
+    maxpool->h_in       = h_in;
+    maxpool->w_in       = w_in;
+    maxpool->c          = c;
+    maxpool->mh         = mh;
+    maxpool->mw         = mw;
+    maxpool->stride     = stride;
 
     int h_out = (h_in - mh) / stride + 1;
     maxpool->h_out = h_out;
     int w_out = (w_in - mw) / stride + 1;
     maxpool->w_out = w_out;
 
+    maxpool->inputs_d = mat_malloc(h_in, n * w_in * c);
     maxpool->outputs = mat_malloc(n * h_out, w_out * c);
-    maxpool->outputs_d = mat_malloc(n * h_out, w_out * c);
 
     maxpool->stored_indeces = (int*)malloc(sizeof(int) * n * h_out * w_out * c);
 
@@ -56,18 +55,32 @@ Maxpool* maxpool_malloc(int n, int h_in, int w_in, int c, int mh, int mw, int st
 }
 
 void maxpool_free(Maxpool* maxpool) {
+    mat_free(maxpool->inputs_d);
     mat_free(maxpool->outputs);
-    mat_free(maxpool->outputs_d);
     free(maxpool->stored_indeces);
     free(maxpool);
 }
 
+Maxpool* maxpool_set_n(Maxpool* maxpool, int n) {
+    maxpool->n = n;
+
+    mat_free(maxpool->inputs_d);
+    mat_free(maxpool->outputs);
+    free(maxpool->stored_indeces);
+
+    maxpool->inputs_d = mat_malloc(maxpool->h_in, n * maxpool->w_in * maxpool->c);
+    maxpool->outputs = mat_malloc(n * maxpool->h_out, maxpool->w_out * maxpool->c);
+    maxpool->stored_indeces = (int*)malloc(sizeof(int) * n * maxpool->h_out * maxpool->w_out * maxpool->c);
+
+    return maxpool;
+}
+
 Maxpool* maxpool_forward(Maxpool* maxpool, Mat* inputs) {
-    assert(inputs->rows == maxpool->h_in && inputs->cols == maxpool->n * maxpool->w_in * maxpool->c);
+    // assert(inputs->rows == maxpool->h_in && inputs->cols == maxpool->n * maxpool->w_in * maxpool->c);
 
     int N = maxpool->n;
     int C = maxpool->c;
-    int h_in = maxpool->h_in;
+    // int h_in = maxpool->h_in;
     int w_in = maxpool->w_in;
     int h_out = maxpool->h_out;
     int w_out = maxpool->w_out;
@@ -108,7 +121,7 @@ Maxpool* maxpool_forward(Maxpool* maxpool, Mat* inputs) {
                         start_inputs_s += h * inputs_cols;
 
                         for (int c = 0; c < C; c++) {
-                            if (start_inputs_s[c] > maxes[c]) {
+                            if (start_inputs_s[c] >= maxes[c]) {
                                 maxes[c] = start_inputs_s[c];
                                 indeces[c] = start_inputs_s + c - inputs_data;
                             }
@@ -124,6 +137,23 @@ Maxpool* maxpool_forward(Maxpool* maxpool, Mat* inputs) {
             }
         }
 
+    }
+
+    return maxpool;
+}
+
+Maxpool* maxpool_backward(Maxpool* maxpool, Conv2d* conv2d, Mat* ds) {
+
+    int elements = maxpool->outputs->rows * maxpool->outputs->cols;
+    
+    mat_fill(conv2d->conv_hnwc_d, 0.0f);
+    float* conv_ds = conv2d->conv_hnwc_d->data;
+
+    int* cur_stored_indeces = maxpool->stored_indeces;
+    float* cur_ds = ds->data;
+
+    for (int i = 0; i < elements; i++) {
+        conv_ds[cur_stored_indeces[i]] += cur_ds[i]; 
     }
 
     return maxpool;

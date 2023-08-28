@@ -10,7 +10,7 @@
 #include "helper.h"
 #include "openblas_config.h"
 #include "cblas.h"
-#include "cnn.h"
+#include "cnn_old.h"
 
 const char* classes[] = {
     "airplane",
