@@ -20,7 +20,7 @@ typedef struct Maxpool {
     int* stored_indeces;
 } Maxpool;
 
-Maxpool* maxpool_malloc(int n, int h_in, int w_in, int c, int mh, int mw, int stride) {
+Maxpool* maxpool_malloc(int h_in, int w_in, int c, int mh, int mw, int stride) {
     
     if (!is_divisible(h_in - mh, stride)) {
         printf("Dimensions not compatible... h_in: %d, mh: %d, s: %d", h_in, mh, stride);
@@ -33,7 +33,7 @@ Maxpool* maxpool_malloc(int n, int h_in, int w_in, int c, int mh, int mw, int st
     }
 
     Maxpool* maxpool    = (Maxpool*)malloc(sizeof(Maxpool));
-    maxpool->n          = n;
+    maxpool->n          = 1;
     maxpool->h_in       = h_in;
     maxpool->w_in       = w_in;
     maxpool->c          = c;
@@ -46,10 +46,10 @@ Maxpool* maxpool_malloc(int n, int h_in, int w_in, int c, int mh, int mw, int st
     int w_out = (w_in - mw) / stride + 1;
     maxpool->w_out = w_out;
 
-    maxpool->inputs_d = mat_malloc(h_in, n * w_in * c);
-    maxpool->outputs = mat_malloc(n * h_out, w_out * c);
+    maxpool->inputs_d = mat_malloc(h_in, 1 * w_in * c);
+    maxpool->outputs = mat_malloc(1 * h_out, w_out * c);
 
-    maxpool->stored_indeces = (int*)malloc(sizeof(int) * n * h_out * w_out * c);
+    maxpool->stored_indeces = (int*)malloc(sizeof(int) * 1 * h_out * w_out * c);
 
     return maxpool;
 }

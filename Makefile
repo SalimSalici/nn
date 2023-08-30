@@ -10,3 +10,6 @@ test: mat.c helper.c mnist_loader.c test.c
 
 cifar: mat.c helper.c mnist_loader.c cifar.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+cifar2: mat.c helper.c mnist_loader.c cifar2.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

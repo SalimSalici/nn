@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     goto_set_num_threads(1);
     openblas_set_num_threads(1);
 
-    int minibatch_size = 10;
+    int minibatch_size = 50;
     int feature_count = 20;
     int kernel_stride = 1;
     int maxpool_stride = 2;
@@ -29,9 +29,8 @@ int main(int argc, char* argv[]) {
 
     CPL* cpl = cpl_malloc(minibatch_size, feature_count, kernel_stride, maxpool_stride, input_original_side, kernel_side, maxpool_side);
     NN* nn = nn_malloc(NN_NLL_LOSS);
-    nn_add_layer(nn, layer_malloc(0, 12*12*feature_count, NN_NONE_ACT, 0.2));
-    nn_add_layer(nn, layer_malloc(12*12*feature_count, 100, NN_RELU_ACT, 0.5));
-    nn_add_layer(nn, layer_malloc(100, 100, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(0, 12*12*feature_count, NN_NONE_ACT, 0.0));
+    nn_add_layer(nn, layer_malloc(12*12*feature_count, 100, NN_RELU_ACT, 0.0));
     nn_add_layer(nn, layer_malloc(100, 10, NN_SOFTMAX_ACT, 0.0));
     nn_initialize_xavier(nn);
 
@@ -40,7 +39,7 @@ int main(int argc, char* argv[]) {
     int training_samples_count = 60000;
     int test_samples_count = 10000;
     int epochs = 30;
-    float lr = 0.05;
+    float lr = 0.1;
     float lambda = 0;
     float black = 0;
     float white = 1;

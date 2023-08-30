@@ -10,7 +10,39 @@ typedef struct Cmpl {
     int is_first;
 } Cmpl;
 
-Cmpl* cmpl_malloc(Conv2d* conv2d, Maxpool* maxpool) {
+Cmpl* cmpl_malloc(int h_in, int w_in, int c_in, int kh, int kw, int kstride, int c_out,
+                  int mh, int mw, int mstride) {
+
+    if (!is_divisible(h_in - kh, kstride)) {
+        printf("cmpl_malloc: Dimensions not compatible... h_in: %d, kh: %d, s: %d", h_in, kh, kstride);
+        exit(1);
+    }
+
+    if (!is_divisible(w_in - kw, kstride)) {
+        printf("cmpl_malloc: Dimensions not compatible... w_in: %d, kw: %d, s: %d", w_in, kw, kstride);
+        exit(1);
+    }
+
+    int conv_h_out = (h_in - kh) / kstride + 1;
+    int conv_w_out = (w_in - kw) / kstride + 1;
+
+    if (!is_divisible(conv_h_out - mh, mstride)) {
+        printf("cmpl_malloc: Dimensions not compatible between conv2d and maxpool...\n");
+        exit(1);
+    }
+
+    if (!is_divisible(conv_w_out - mw, mstride)) {
+        printf("cmpl_malloc: Dimensions not compatible between conv2d and maxpool...\n");
+        exit(1);
+    }
+
+    Cmpl* cmpl = (Cmpl*)malloc(sizeof(Cmpl));
+    cmpl->conv2d = conv2d_malloc(h_in, w_in, c_in, kh, kw, kstride, c_out);
+    cmpl->maxpool = maxpool_malloc(conv_h_out, conv_w_out, c_out, mh, mw, mstride);
+    return cmpl;
+}
+
+Cmpl* cmpl_malloc_raw(Conv2d* conv2d, Maxpool* maxpool) {
     Cmpl* cmpl = (Cmpl*)malloc(sizeof(Cmpl));
     cmpl->conv2d = conv2d;
     cmpl->maxpool = maxpool;
@@ -46,7 +78,8 @@ Mat* cmpl_backward(Cmpl* cmpl, Mat* grad) {
 }
 
 Cmpl* cmpl_update_weights_and_biases(Cmpl* cmpl, float lr) {
-    conv2d_update_weights_and_biases(cmpl->conv2d, lr);
+    conv2d_update_weights(cmpl->conv2d, lr);
+    conv2d_update_biases(cmpl->conv2d, lr);
     return cmpl;
 }
 

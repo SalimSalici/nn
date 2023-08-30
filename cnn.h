@@ -163,10 +163,6 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
     printf("Starting cnn SGD. \nParameters: epochs=%d, minibatch_size=%d, lr=%f, lambda=%f\n", epochs, minibatch_size, lr, lambda);
     printf("Initial accuracy: %.2f%%\n\n", cnn_evaluate(cnn, test_samples, test_samples_count) * 100);
 
-    // mat_print(cnn->cmpl_layers[0]->conv2d->kernels);
-    // printf("---------\n");
-    // mat_print(cnn->cmpl_layers[0]->conv2d->biases);
-
     clock_t begin_total = clock();
     
     for (int epoch = 0; epoch < epochs; epoch++) {
@@ -190,19 +186,7 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
         
         if (test_samples != NULL) {
             float accuracy = cnn_evaluate(cnn, test_samples, test_samples_count) * 100;
-            // float accuracy = 0;
             printf("Epoch %d completed - Epoch time: %.2fs - Accuracy: %.2f%%\n", epoch, time_spent, accuracy);
-
-            // mat_print_shades(cnn->cmpl_layers[1]->maxpool->inputs_d);
-            // if (accuracy < 50) {
-            //     mat_print(cnn->cmpl_layers[0]->conv2d->kernels);
-            //     printf("---------\n");
-            //     mat_print(cnn->cmpl_layers[0]->conv2d->biases);
-            //     printf("---------\n");
-            //     mat_print(cnn->cmpl_layers[0]->conv2d->conv_hnwc_d);
-            //     printf("---------\n");
-            //     printf("---------\n");
-            // }
         } else
             printf("Epoch %d completed.\n", epoch);
 

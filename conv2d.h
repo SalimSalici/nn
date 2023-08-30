@@ -42,7 +42,7 @@ Conv2d* conv2d_initialize_normal(Conv2d* conv2d, float mean, float sd) {
     return conv2d;
 }
 
-Conv2d* conv2d_malloc(int n, int h_in, int w_in, int c_in, int kh, int kw, int stride, int c_out) {
+Conv2d* conv2d_malloc(int h_in, int w_in, int c_in, int kh, int kw, int stride, int c_out) {
 
     if (!is_divisible(h_in - kh, stride)) {
         printf("Dimensions not compatible... h_in: %d, kh: %d, s: %d", h_in, kh, stride);
@@ -55,7 +55,7 @@ Conv2d* conv2d_malloc(int n, int h_in, int w_in, int c_in, int kh, int kw, int s
     }
 
     Conv2d* conv2d  = (Conv2d*)malloc(sizeof(Conv2d));
-    conv2d->n       = n;
+    conv2d->n       = 1;
     conv2d->h_in    = h_in;
     conv2d->w_in    = w_in;
     conv2d->c_in    = c_in;
@@ -69,13 +69,13 @@ Conv2d* conv2d_malloc(int n, int h_in, int w_in, int c_in, int kh, int kw, int s
     int w_out       = (w_in - kw) / stride + 1;
     conv2d->w_out   = w_out;
 
-    conv2d->inputs_d            = mat_malloc(n * h_in, w_in * c_in);
-    conv2d->inputs_lowered      = mat_malloc(n * w_out, h_in * kw * c_in);
-    conv2d->inputs_lowered_d    = mat_malloc(n * w_out, h_in * kw * c_in);
-    conv2d->conv_hnwc_z         = mat_malloc(h_out, n * w_out * c_out);
-    conv2d->conv_hnwc_z_prime   = mat_malloc(h_out, n * w_out * c_out);
-    conv2d->conv_hnwc_a         = mat_malloc(h_out, n * w_out * c_out);
-    conv2d->conv_hnwc_d         = mat_malloc(h_out, n * w_out * c_out);
+    conv2d->inputs_d            = mat_malloc(1 * h_in, w_in * c_in);
+    conv2d->inputs_lowered      = mat_malloc(1 * w_out, h_in * kw * c_in);
+    conv2d->inputs_lowered_d    = mat_malloc(1 * w_out, h_in * kw * c_in);
+    conv2d->conv_hnwc_z         = mat_malloc(h_out, 1 * w_out * c_out);
+    conv2d->conv_hnwc_z_prime   = mat_malloc(h_out, 1 * w_out * c_out);
+    conv2d->conv_hnwc_a         = mat_malloc(h_out, 1 * w_out * c_out);
+    conv2d->conv_hnwc_d         = mat_malloc(h_out, 1 * w_out * c_out);
 
     conv2d->kernels = mat_malloc(kh * kw * c_in, c_out);
     conv2d->biases  = mat_calloc(1, c_out);
@@ -281,7 +281,7 @@ Mat* conv2d_backward_into_inputs(Conv2d* conv2d) {
     return result;
 }
 
-Conv2d* conv2d_update_weights_and_biases(Conv2d* conv2d, float lr) {
+Conv2d* conv2d_update_weights(Conv2d* conv2d, float lr) {
     int C_in = conv2d->c_in;
     int H_out = conv2d->h_out;
     int N_out = conv2d->n;
@@ -312,26 +312,39 @@ Conv2d* conv2d_update_weights_and_biases(Conv2d* conv2d, float lr) {
                 1.0, kernels->data, C_out);
     }
 
-    /////////////////////////// BIASES
+    return conv2d;
+}
 
-    Mat* biases_d = mat_calloc(conv2d->biases->rows, conv2d->biases->cols);
-    float* biases_d_data = biases_d->data;
+Conv2d* conv2d_update_biases(Conv2d* conv2d, float lr) {
+    // Mat* biases_d = mat_calloc(conv2d->biases->rows, conv2d->biases->cols);
+    // float* biases_d_data = biases_d->data;
+    float* biases_data = conv2d->biases->data;
 
     int pixels = conv2d->n * conv2d->h_out * conv2d->w_out;
+    int c_out = conv2d->c_out;
 
     float* cur_grad_data = conv2d->conv_hnwc_d->data;
 
+    // for (int p = 0; p < pixels; p++) {
+    //     for (int c = 0; c < c_out; c++) {
+    //         biases_d_data[c] += *cur_grad_data; 
+    //         cur_grad_data++;
+    //     }
+    // }
+
+    float scale_factor = -lr / conv2d->n;
+
     for (int p = 0; p < pixels; p++) {
-        for (int c = 0; c < C_out; c++) {
-            biases_d_data[c] += *cur_grad_data; 
+        for (int c = 0; c < c_out; c++) {
+            biases_data[c] += (*cur_grad_data) * scale_factor; 
             cur_grad_data++;
         }
     }
 
-    biases_d = mat_scale(biases_d, biases_d, -lr / N_out);
-    conv2d->biases = mat_add(conv2d->biases, conv2d->biases, biases_d);
+    // biases_d = mat_scale(biases_d, biases_d, -lr / conv2d->n);
+    // conv2d->biases = mat_add(conv2d->biases, conv2d->biases, biases_d);
 
-    mat_free(biases_d);
+    // mat_free(biases_d);
 
     return conv2d;
 }
