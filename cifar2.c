@@ -53,15 +53,15 @@ int main(int argc, char* argv[]) {
     ));
 
     NN* nn = nn_malloc(NN_NLL_LOSS);
-    nn_add_layer(nn, layer_malloc(0, 128*2*2, NN_RELU_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(128*2*2, 500, NN_RELU_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(500, 100, NN_RELU_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(100, 10, NN_SOFTMAX_ACT, 0.0));
+    nn_add_layer(nn, layer_malloc(0, 128*2*2, NN_RELU_ACT, 0.2));
+    nn_add_layer(nn, layer_malloc(128*2*2, 500, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(500, 500, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(500, 10, NN_SOFTMAX_ACT, 0.0));
     nn_initialize_xavier(nn);
     
     cnn_set_nn(cnn, nn);
 
-    float lr = 0.01; // learning rate
+    float lr = 0.05; // learning rate
     float lambda = 0.0; // L2 regularization
     int epochs = 60;
     int minibatch_size = 50;

@@ -795,3 +795,33 @@ void mat_print_shades(Mat* m) {
         printf("}\n");
     }
 }
+
+Mat* mat_flip_hor(Mat* res, Mat* m) {
+
+    assert(m->t == 0);
+
+    int rows = m->rows;
+    int cols = m->cols;
+
+    if (res == NULL)
+        res = mat_malloc(m->rows, m->cols);
+    else {
+        assert(res->rows == m->rows);
+        assert(res->cols == m->cols);
+    }
+
+    float* res_data = res->data;
+    float* m_data = m->data;
+
+    if (res != m) {
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                res_data[c] = m_data[cols - 1 - c];
+            }
+            res_data += cols;
+            m_data += cols;
+        }
+    }
+
+    return res;
+}

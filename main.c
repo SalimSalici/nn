@@ -40,10 +40,10 @@ int main(int argc, char* argv[]) {
     int featuremaps0 = 20;
     int featuremaps_last = 40;
     NN* nn = nn_malloc(NN_NLL_LOSS);
-    nn_add_layer(nn, layer_malloc(0, featuremaps_last*4*4, NN_NONE_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(featuremaps_last*4*4, 100, NN_RELU_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(100, 100, NN_RELU_ACT, 0.0));
-    nn_add_layer(nn, layer_malloc(100, 10, NN_SOFTMAX_ACT, 0.0));
+    nn_add_layer(nn, layer_malloc(0, featuremaps_last*4*4, NN_NONE_ACT, 0.2));
+    nn_add_layer(nn, layer_malloc(featuremaps_last*4*4, 500, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(500, 500, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(500, 10, NN_SOFTMAX_ACT, 0.0));
     nn_initialize_xavier(nn);
     cnn_add_cmpl_layer(cnn, cmpl_malloc(
         28, 28, 1,
@@ -59,18 +59,18 @@ int main(int argc, char* argv[]) {
     cnn_set_nn(cnn, nn);
 
     float lr = 0.05; // learning rate
-    float lambda = 0.01; // L2 regularization
+    float lambda = 0.00; // L2 regularization
     int epochs = 60;
     int minibatch_size = 50;
-    int training_samples_count = 1000;
-    int test_samples_count = 1000;
+    int training_samples_count = 2400;
+    int test_samples_count = 400;
     float black = 0;
     float white = 1;
 
-    MnistSample* training_data = mnist_load_samples("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte", 0, training_samples_count, black, white);
-    MnistSample* test_data = mnist_load_samples("data/t10k-images.idx3-ubyte", "data/t10k-labels.idx1-ubyte", 0, test_samples_count, black, white);
-    // MnistSample* training_data = mnist_load_samples("data/emnist/emnist-digits-train-images-idx3-ubyte", "data/emnist/emnist-digits-train-labels-idx1-ubyte", 0, training_samples_count, black, white);
-    // MnistSample* test_data = mnist_load_samples("data/emnist/emnist-digits-test-images-idx3-ubyte", "data/emnist/emnist-digits-test-labels-idx1-ubyte", 0, test_samples_count, black, white);
+    // MnistSample* training_data = mnist_load_samples("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte", 0, training_samples_count, black, white);
+    // MnistSample* test_data = mnist_load_samples("data/t10k-images.idx3-ubyte", "data/t10k-labels.idx1-ubyte", 0, test_samples_count, black, white);
+    MnistSample* training_data = mnist_load_samples("data/emnist/emnist-digits-train-images-idx3-ubyte", "data/emnist/emnist-digits-train-labels-idx1-ubyte", 0, training_samples_count, black, white);
+    MnistSample* test_data = mnist_load_samples("data/emnist/emnist-digits-test-images-idx3-ubyte", "data/emnist/emnist-digits-test-labels-idx1-ubyte", 0, test_samples_count, black, white);
     // MnistSample* training_data = mnist_load_samples("data/fashion/train-images.idx3-ubyte", "data/fashion/train-labels.idx1-ubyte", 0, training_samples_count, black, white);
     // MnistSample* test_data = mnist_load_samples("data/fashion/t10k-images.idx3-ubyte", "data/fashion/t10k-labels.idx1-ubyte", 0, test_samples_count, black, white);
 

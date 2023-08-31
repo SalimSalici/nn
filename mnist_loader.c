@@ -90,6 +90,21 @@ Sample** mnist_samples_to_samples(MnistSample* mnist_samples, int count, float b
     return samples;
 }
 
+Sample** mnist_samples_to_autoenc_samples(MnistSample* mnist_samples, int count, float black, float white) {
+    Sample** samples = (Sample**)malloc(sizeof(Sample*) * count);
+
+    for (int i = 0; i < count; i++) {
+        samples[i] = (Sample*)malloc(sizeof(Sample));
+        
+        samples[i]->inputs = mat_malloc_nodata(28*28, 1);
+        samples[i]->inputs->data = mnist_samples[i].data;
+
+        samples[i]->outputs = mat_malloc_nodata(28*28, 1);
+        samples[i]->outputs->data = mnist_samples[i].data;
+    }
+    return samples;
+}
+
 Sample** mnist_samples_to_conv_samples(MnistSample* mnist_samples, int count, float black, float white) {
     Sample** samples = (Sample**)malloc(sizeof(Sample*) * count);
 

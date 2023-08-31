@@ -134,7 +134,7 @@ CNN* cnn_update_minibatch(CNN* cnn, float lr, float lambda, Sample* minibatch[],
     return cnn;
 }
 
-float cnn_evaluate(CNN* cnn, Sample* test_samples[], int test_samples_count) {
+float cnn_evaluate(CNN* cnn, Sample* test_samples[], int test_samples_count, float* loss) {
 
     NN* nn = cnn->nn;
 
@@ -143,16 +143,44 @@ float cnn_evaluate(CNN* cnn, Sample* test_samples[], int test_samples_count) {
 
     int correct_predictions = 0;
 
+    if (loss)
+        *loss = 0;
+
     for (int i = 0; i < test_samples_count; i++) {
         Mat* inputs = test_samples[i]->inputs;
         Mat* outputs = cnn_feedforward(cnn, &inputs, 1);
+        Mat* correct_outputs = test_samples[i]->outputs;
 
         int prediction = nn_argmax(outputs->data, outputs->rows);
         int correct = nn_argmax(test_samples[i]->outputs->data, test_samples[i]->outputs->rows);
 
         if (prediction == correct)
             correct_predictions++;
+
+        if (loss) {
+            switch(nn->loss_function) {
+                case NN_MSE_LOSS:
+                    for (int i = 0; i < outputs->rows; i++) {
+                        float diff = outputs->data[i] - correct_outputs->data[i];
+                        *loss += diff*diff;
+                    }
+                    break;
+                case NN_BCE_LOSS:
+                    for (int i = 0; i < outputs->rows; i++) {
+                        float y = correct_outputs->data[i];
+                        float p =  outputs->data[i];
+                        *loss -= y * log(p + 0.00000000001) + (1 - y) * log(1 - p + 0.00000000001);
+                    }
+                    break;
+                case NN_NLL_LOSS:
+                    *loss -= log(outputs->data[correct]);
+                    break;
+            }
+        }
     }
+
+    if (loss)
+        *loss /= test_samples_count;
 
     return (float)correct_predictions / test_samples_count;
 }
@@ -161,13 +189,13 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
     int minibatch_size, float lr, float lambda, Sample* test_samples[], int test_samples_count) {
 
     printf("Starting cnn SGD. \nParameters: epochs=%d, minibatch_size=%d, lr=%f, lambda=%f\n", epochs, minibatch_size, lr, lambda);
-    printf("Initial accuracy: %.2f%%\n\n", cnn_evaluate(cnn, test_samples, test_samples_count) * 100);
+    printf("Initial accuracy: %.2f%%\n\n", cnn_evaluate(cnn, test_samples, test_samples_count, NULL) * 100);
 
     clock_t begin_total = clock();
     
     for (int epoch = 0; epoch < epochs; epoch++) {
 
-        if (epoch != 0 && epoch % 100 == 0) {
+        if (epoch != 0 && epoch % 30 == 0) {
             lr *= 0.1;
             printf("Learning rate updated. Current lr=%f\n", lr);
         }
@@ -185,7 +213,7 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
         float time_spent = (float)(end - begin) / CLOCKS_PER_SEC;
         
         if (test_samples != NULL) {
-            float accuracy = cnn_evaluate(cnn, test_samples, test_samples_count) * 100;
+            float accuracy = cnn_evaluate(cnn, test_samples, test_samples_count, NULL) * 100;
             printf("Epoch %d completed - Epoch time: %.2fs - Accuracy: %.2f%%\n", epoch, time_spent, accuracy);
         } else
             printf("Epoch %d completed.\n", epoch);
@@ -196,6 +224,32 @@ CNN* cnn_sgd(CNN* cnn, Sample* training_samples[], int training_samples_count, i
     float time_spent_total = (float)(end_total - begin_total) / CLOCKS_PER_SEC;
     printf("Training completed. Total time: %.2fs\n", time_spent_total);
     printf("Parameters: epochs=%d, minibatch_size=%d, lr=%f, lambda=%f\n", epochs, minibatch_size, lr, lambda);
+
+    return cnn;
+}
+
+CNN* cnn_one_epoch(CNN* cnn, Sample* training_samples[], int training_samples_count, int epochs,
+    int minibatch_size, float lr, float lambda, Sample* test_samples[], int test_samples_count) {
+
+    float loss = 0;
+
+    clock_t begin = clock();
+
+    shuffle_pointers((void*)training_samples, training_samples_count);
+
+    cnn_set_group_count(cnn, minibatch_size);
+
+    for (int batch_offset = 0; batch_offset < training_samples_count; batch_offset += minibatch_size)
+        cnn_update_minibatch(cnn, lr, lambda, training_samples + batch_offset, minibatch_size, training_samples_count);
+
+    clock_t end = clock();
+    float time_spent = (float)(end - begin) / CLOCKS_PER_SEC;
+    
+    if (test_samples != NULL) {
+        float accuracy = cnn_evaluate(cnn, test_samples, test_samples_count, &loss) * 100;
+        printf("Epoch completed - Epoch time: %.2fs - Loss: %f - Accuracy: %.2f%%\n", time_spent, loss, accuracy);
+    } else
+        printf("Epoch completed.\n");
 
     return cnn;
 }

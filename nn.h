@@ -568,8 +568,9 @@ void nn_merge_minibatch(Sample* minibatch[], int minibatch_size, Mat** inputs, M
 }
 
 NN* nn_update_weights_and_biases(NN* nn, float lr, float lambda, int training_count) {
-    for (int i = 1; i < nn->num_layers; i++)
+    for (int i = 1; i < nn->num_layers; i++) {
         layer_update_weights_and_biases(nn->layers[i], nn->layers[i-1], lr, lambda, training_count);
+    }
     return nn;
 }
 
@@ -638,7 +639,8 @@ float nn_evaluate(NN* nn, Sample* test_samples[], int test_samples_count, float*
             correct_predictions++;
     }
 
-    *loss /= test_samples_count;
+    if (loss)
+        *loss /= test_samples_count;
 
     return (float)correct_predictions / test_samples_count;
 }
@@ -677,6 +679,32 @@ NN* nn_sgd(NN* nn, Sample* training_samples[], int training_samples_count, int e
     clock_t end_total = clock();
     float time_spent_total = (float)(end_total - begin_total) / CLOCKS_PER_SEC;
     printf("Training completed. Total time: %.2fs", time_spent_total);
+
+    return nn;
+}
+
+NN* nn_one_epoch(NN* nn, Sample* training_samples[], int training_samples_count, int epochs,
+    int minibatch_size, float lr, float lambda, Sample* test_samples[], int test_samples_count) {
+
+    float loss = 0;
+
+    clock_t begin = clock();
+
+    shuffle_pointers((void*)training_samples, training_samples_count);
+
+    nn_set_layers_group_count(nn, minibatch_size);
+
+    for (int batch_offset = 0; batch_offset < training_samples_count; batch_offset += minibatch_size)
+        nn_update_minibatch(nn, lr, lambda, training_samples + batch_offset, minibatch_size, training_samples_count);
+
+    clock_t end = clock();
+    float time_spent = (float)(end - begin) / CLOCKS_PER_SEC;
+    
+    if (test_samples != NULL) {
+        float accuracy = nn_evaluate(nn, test_samples, test_samples_count, &loss) * 100;
+        printf("Epoch completed - Epoch time: %.2fs - Loss: %f - Accuracy: %.2f%%\n", time_spent, loss, accuracy);
+    } else
+        printf("Epoch completed.\n");
 
     return nn;
 }

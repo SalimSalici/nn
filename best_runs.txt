@@ -1,0 +1,75 @@
+Epoch 41 completed - Epoch time: 63.73s - Accuracy: 99.66%
+    EMNIST dataset: 240000 training digits & 40000 test digits
+    ARCHITECTURE:
+        INPUTS: 28x28x1 (H, W, C)
+        LAYER 1: CONV_MAXPOOL
+            CONV KER: 5x5x1 CONV KER
+            CONV STRIDE: 1
+            OUT CHANNELS: 20
+            MAXPOOL: 2x2
+            MAXPOOL STRIDE: 2
+        LAYER 2: CONV_MAXPOOL
+            CONV KER: 5x5x20 CONV KER
+            CONV STRIDE: 1
+            OUT CHANNELS: 40
+            MAXPOOL: 2x2
+            MAXPOOL STRIDE: 2
+            DROPOUT: 0.2 (IN to NN)
+        LAYER 3: DENSE
+            IN: 20 * 4 * 4
+            OUT: 500
+            ACT: RELU
+            DROPOUT
+            DROPOUT: 0.5
+        LAYER 4: DENSE
+            IN: 500
+            OUT: 500
+            ACT: RELU
+            DROPOUT: 0.5
+        LAYER 5: DENSE (OUTPUT)
+            IN: 500
+            OUT: 10
+            ACT: SOFTMAX
+    HYPERPARAMETERS:
+        LR: 0.05 for 30 epochs, 0.005 for 10 more epochs
+        MINIBATCH SIZE: 50
+        L2 reg: 0.0
+
+----------------------
+
+cnn_add_cmpl_layer(cnn, cmpl_malloc(
+        32, 32, 3,
+        5, 5, 1, 32,
+        2, 2, 2
+    ));
+
+    cnn_add_cmpl_layer(cnn, cmpl_malloc(
+        14, 14, 32,
+        3, 3, 1, 64,
+        2, 2, 2
+    ));
+
+    cnn_add_cmpl_layer(cnn, cmpl_malloc(
+        6, 6, 64,
+        3, 3, 1, 128,
+        2, 2, 2
+    ));
+
+    NN* nn = nn_malloc(NN_NLL_LOSS);
+    nn_add_layer(nn, layer_malloc(0, 128*2*2, NN_RELU_ACT, 0.2));
+    nn_add_layer(nn, layer_malloc(128*2*2, 500, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(500, 500, NN_RELU_ACT, 0.5));
+    nn_add_layer(nn, layer_malloc(500, 10, NN_SOFTMAX_ACT, 0.0));
+    nn_initialize_xavier(nn);
+    
+    cnn_set_nn(cnn, nn);
+
+    float lr = 0.05; // learning rate
+    float lambda = 0.0; // L2 regularization
+    int epochs = 60;
+    int minibatch_size = 50;
+    int training_samples_count = 10000;
+    int test_samples_count = 10000;
+    float black = 0;
+    float white = 1;
+Epoch 52 completed - Epoch time: 30.33s - Accuracy: 74.54%
