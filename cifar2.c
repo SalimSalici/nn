@@ -90,9 +90,5 @@ int main(int argc, char* argv[]) {
     // nn_sgd(nn, training_samples, 50000, epochs, minibatch_size, lr, lambda, test_samples, test_samples_count);
     cnn_sgd(cnn, training_samples, 50000, epochs, minibatch_size, lr, lambda, test_samples, test_samples_count);
     
-    // for (int x = 0; x < 30; x++) {
-    //     cifar10_print_image(training_data[x].data);
-    //     printf("%s\n\n", classes[training_data[x].label]);
-    // }
     return 0;
 }
